@@ -29,7 +29,10 @@ export function Header({ user, onSearch, onSignOut }: HeaderProps) {
 
   return (
     <Group h="100%" px="md" justify="space-between">
-      <Title order={3}>Qodo TODO</Title>
+      <Group gap="xs">
+        <img src="/logo.svg" alt="Qodo" height={28} />
+        <Title order={3}>TODO</Title>
+      </Group>
 
       <Group>
         <TextInput

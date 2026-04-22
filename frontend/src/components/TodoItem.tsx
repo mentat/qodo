@@ -8,9 +8,9 @@ import type { DraggableProvided } from '@hello-pangea/dnd';
 dayjs.extend(relativeTime);
 
 const priorityColors: Record<string, string> = {
-  high: 'red',
-  medium: 'yellow',
-  low: 'blue',
+  high: 'neonPink',
+  medium: 'hotYellow',
+  low: 'electricBlue',
 };
 
 interface TodoItemProps {

@@ -58,8 +58,11 @@ export function LoginPage() {
   return (
     <Center mih="100vh" bg="var(--mantine-color-body)">
       <Container size={420} w="100%">
-        <Title ta="center" mb="md">
-          Qodo TODO
+        <Center mb="md">
+          <img src="/logo.svg" alt="Qodo" height={40} />
+        </Center>
+        <Title ta="center" mb="md" order={2}>
+          TODO
         </Title>
         <Text c="dimmed" size="sm" ta="center" mb="xl">
           {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
