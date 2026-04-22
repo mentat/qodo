@@ -50,7 +50,7 @@ deploy-api: build-api
 		--account $(ACCOUNT) \
 		--platform managed \
 		--allow-unauthenticated \
-		--set-env-vars GOOGLE_CLOUD_PROJECT=$(PROJECT_ID)
+		--set-env-vars GOOGLE_CLOUD_PROJECT=$(PROJECT_ID),GOOGLE_CLOUD_LOCATION=$(REGION),NEWSAPI_API_KEY=$$NEWSAPI_API_KEY
 
 deploy-frontend: build-frontend
 	firebase deploy --only hosting --project $(PROJECT_ID) --account $(ACCOUNT)

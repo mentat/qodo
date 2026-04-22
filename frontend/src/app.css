@@ -1,0 +1,25 @@
+/* App-wide contrast bump.
+ *
+ * Mantine's defaults (gray-9 text on gray-0 light / gray-0 text on dark-7 bg)
+ * land a bit washed-out on modern monitors. These overrides push text toward
+ * pure black/white and deepen the background a touch in each scheme — a
+ * Mantine-shipped override hook, not a hard fork of the theme colors.
+ */
+
+/* Light mode: crisper text on a whiter canvas. */
+[data-mantine-color-scheme='light'] {
+  --mantine-color-text: #0a0a0f;
+  --mantine-color-body: #fefeff;
+  --mantine-color-dimmed: #4a4a55;
+  --mantine-color-placeholder: #6a6a75;
+  --mantine-color-default-border: #b9b9c2;
+}
+
+/* Dark mode: brighter text on a deeper background. */
+[data-mantine-color-scheme='dark'] {
+  --mantine-color-text: #f3f3f7;
+  --mantine-color-body: #0d0d12;
+  --mantine-color-dimmed: #a6a6b0;
+  --mantine-color-placeholder: #8a8a95;
+  --mantine-color-default-border: #33333d;
+}

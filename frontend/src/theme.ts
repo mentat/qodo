@@ -68,6 +68,11 @@ const hotYellow: MantineColorsTuple = [
 
 export const theme = createTheme({
   primaryColor: 'synthPurple',
+  // autoContrast flips button/badge text to black or white based on the
+  // background's luminance — a small but noticeable legibility bump on colored
+  // surfaces. Pair with the app-wide CSS overrides in app.css.
+  autoContrast: true,
+  luminanceThreshold: 0.4,
   colors: {
     neonPink,
     electricBlue,

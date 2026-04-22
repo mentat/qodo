@@ -36,6 +36,12 @@ func TestScreener_AllowsOnTopic(t *testing.T) {
 		"what's the wikipedia summary for Voyager 1?",
 		"hi Marvin!",
 		"what can you do?",
+		// Informational questions should allow — they're plain Wikipedia
+		// queries even if the user doesn't explicitly say "wikipedia".
+		"Tell me about quantum physics.",
+		"Who was Marie Curie?",
+		"What is the Roman Empire?",
+		"explain photosynthesis",
 	} {
 		r := s.Screen(ctx, msg)
 		if r.Decision != agent.DecisionAllow {
