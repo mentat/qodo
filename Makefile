@@ -1,4 +1,4 @@
-.PHONY: setup dev dev-api dev-frontend test test-api test-frontend deploy deploy-api deploy-frontend build-api build-frontend
+.PHONY: setup dev dev-api dev-frontend test test-api test-frontend deploy deploy-api deploy-frontend build-api build-frontend serve
 
 PROJECT_ID := qodo-demo
 REGION := us-central1
@@ -9,14 +9,14 @@ ACCOUNT := jesse.l@qodo.ai
 # ── Setup ──────────────────────────────────────────────────────────
 setup:
 	cd api && go mod download
-	cd frontend && bun ci
+	cd frontend && bun install
 
 # ── Local Development ──────────────────────────────────────────────
 dev:
 	$(MAKE) dev-api & $(MAKE) dev-frontend & wait
 
 dev-api:
-	cd api && GOOGLE_APPLICATION_CREDENTIALS=../service-account.json go run .
+	cd api && GOOGLE_APPLICATION_CREDENTIALS=../service-account.json PORT=4090 go run .
 
 dev-frontend:
 	cd frontend && bun run dev
@@ -53,3 +53,7 @@ deploy-api: build-api
 
 deploy-frontend: build-frontend
 	firebase deploy --only hosting --project $(PROJECT_ID) --account $(ACCOUNT)
+
+# ── Supervisord ────────────────────────────────────────────────────
+serve:
+	supervisord -c supervisord.conf
