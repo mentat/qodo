@@ -4,11 +4,15 @@ import { API_BASE } from './base';
 
 const BASE = `${API_BASE}/api/todos`;
 
+let cachedToken: string | null = null;
+
 async function headers(): Promise<HeadersInit> {
-  const token = await auth.currentUser?.getIdToken();
+  if (!cachedToken) {
+    cachedToken = (await auth.currentUser?.getIdToken()) ?? null;
+  }
   return {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(cachedToken ? { Authorization: `Bearer ${cachedToken}` } : {}),
   };
 }
 
