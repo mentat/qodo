@@ -32,7 +32,8 @@ test-frontend:
 
 # ── Build ──────────────────────────────────────────────────────────
 build-api:
-	docker build -t $(API_IMAGE):latest ./api
+	cd api && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o server .
+	docker build --platform linux/amd64 -t $(API_IMAGE):latest ./api
 
 build-frontend:
 	cd frontend && bun run build
