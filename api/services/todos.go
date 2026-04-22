@@ -347,7 +347,9 @@ func (s *TodoService) Search(ctx context.Context, userID, query string, limit in
 	iter := q.Documents(ctx)
 	defer iter.Stop()
 
-	var todos []Todo
+	// Non-nil empty slice so JSON serialization emits [] rather than null
+	// when zero results match.
+	todos := make([]Todo, 0)
 	for {
 		doc, err := iter.Next()
 		if err == iterator.Done {
