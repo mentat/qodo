@@ -248,6 +248,61 @@ func invokeUntil(
 
 // ─── Persona: reply should feel Marvin-ish ───────────────────────────────────
 
+// Regression: "I've finished <title>" must actually complete the todo, not
+// narrate success or bounce with a clarification question. Reproduces the
+// reported bug where a todo named "Other" stayed open after Marvin claimed
+// to complete it.
+func TestMarvin_FinishedPhrasing(t *testing.T) {
+	a, svc, cleanup := setupMarvin(t)
+	uid := uniqueUID(t)
+	defer cleanup(uid)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	created, err := svc.Create(context.Background(), uid, services.CreateInput{Title: "Other"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Try the reported phrasing plus a retry with sharper wording — we care
+	// about end state (todo marked complete in Firestore), not which prompt
+	// got the model there.
+	prompts := []string{
+		"I've finished other.",
+		"Mark the 'Other' todo as complete.",
+	}
+	var lastRes agent.InvokeResult
+	completed := false
+	for i, p := range prompts {
+		res, err := a.Invoke(ctx, uid, fmt.Sprintf("sess-finished-%d", i), p, nil)
+		if err != nil {
+			t.Fatalf("invoke: %v", err)
+		}
+		lastRes = res
+		got, err := svc.Get(context.Background(), uid, created.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Completed {
+			completed = true
+			t.Logf("completed after prompt %q; reply=%q tools=%v", p, res.Reply, toolNames(res.ToolCalls))
+			break
+		}
+		t.Logf("after prompt %q: NOT completed yet; reply=%q tools=%v", p, res.Reply, toolNames(res.ToolCalls))
+	}
+	if !completed {
+		t.Fatalf("todo 'Other' still open after %d attempts; last reply=%q tools=%v",
+			len(prompts), lastRes.Reply, toolNames(lastRes.ToolCalls))
+	}
+}
+
+func toolNames(calls []agent.ToolCallInfo) []string {
+	out := make([]string, 0, len(calls))
+	for _, c := range calls {
+		out = append(out, c.Name)
+	}
+	return out
+}
+
 // Informational "tell me about X" should route through Wikipedia rather than
 // being refused as off-topic.
 func TestMarvin_TellMeAboutTopic(t *testing.T) {
