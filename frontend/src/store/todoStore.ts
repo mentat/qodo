@@ -102,29 +102,36 @@ export const useTodoStore = create<TodoState>((set, get) => ({
   setStatusFilter: (statusFilter) => set({ statusFilter }),
 }));
 
-// Derived selectors
-export const useFilteredTodos = () =>
-  useTodoStore((s) => {
-    let result = s.todos;
-    if (s.searchQuery) {
-      const q = s.searchQuery.toLowerCase();
-      result = result.filter(
-        (t) => t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)
-      );
-    }
-    if (s.priorityFilter) {
-      result = result.filter((t) => t.priority === s.priorityFilter);
-    }
-    if (s.categoryFilter) {
-      result = result.filter((t) => t.category === s.categoryFilter);
-    }
-    if (s.statusFilter === 'active') {
-      result = result.filter((t) => !t.completed);
-    } else if (s.statusFilter === 'done') {
-      result = result.filter((t) => t.completed);
-    }
-    return result;
-  });
+// Pure filter function — used with useMemo in components to avoid
+// infinite re-render loops with React 19's useSyncExternalStore
+export function filterTodos(
+  todos: Todo[],
+  searchQuery: string,
+  priorityFilter: string | null,
+  categoryFilter: string | null,
+  statusFilter: string,
+): Todo[] {
+  let result = todos;
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    result = result.filter(
+      (t) => t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)
+    );
+  }
+  if (priorityFilter) {
+    result = result.filter((t) => t.priority === priorityFilter);
+  }
+  if (categoryFilter) {
+    result = result.filter((t) => t.category === categoryFilter);
+  }
+  if (statusFilter === 'active') {
+    result = result.filter((t) => !t.completed);
+  } else if (statusFilter === 'done') {
+    result = result.filter((t) => t.completed);
+  }
+  return result;
+}
 
-export const useCategories = () =>
-  useTodoStore((s) => [...new Set(s.todos.map((t) => t.category).filter(Boolean))]);
+export function deriveCategories(todos: Todo[]): string[] {
+  return [...new Set(todos.map((t) => t.category).filter(Boolean))];
+}

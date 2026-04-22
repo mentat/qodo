@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { AppShell, Button, Modal, Group, Container } from '@mantine/core';
+import { useState, useEffect, useMemo } from 'react';
+import { AppShell, Button, Modal, Group, Container, Center, Loader } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconPlus } from '@tabler/icons-react';
 import { useAuth } from './hooks/useAuth';
@@ -8,7 +8,7 @@ import { Header } from './components/Header';
 import { TodoFilters } from './components/TodoFilters';
 import { TodoList } from './components/TodoList';
 import { TodoForm, type FormValues } from './components/TodoForm';
-import { useTodoStore, useFilteredTodos, useCategories } from './store/todoStore';
+import { useTodoStore, filterTodos, deriveCategories } from './store/todoStore';
 import type { Todo } from './types/todo';
 
 export default function App() {
@@ -17,25 +17,29 @@ export default function App() {
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const {
-    loading,
-    priorityFilter,
-    categoryFilter,
-    statusFilter,
-    fetchTodos,
-    addTodo,
-    updateTodo,
-    toggleTodo,
-    removeTodo,
-    reorderTodos,
-    setSearchQuery,
-    setPriorityFilter,
-    setCategoryFilter,
-    setStatusFilter,
-  } = useTodoStore();
+  const todos = useTodoStore((s) => s.todos);
+  const loading = useTodoStore((s) => s.loading);
+  const searchQuery = useTodoStore((s) => s.searchQuery);
+  const priorityFilter = useTodoStore((s) => s.priorityFilter);
+  const categoryFilter = useTodoStore((s) => s.categoryFilter);
+  const statusFilter = useTodoStore((s) => s.statusFilter);
+  const fetchTodos = useTodoStore((s) => s.fetchTodos);
+  const addTodo = useTodoStore((s) => s.addTodo);
+  const updateTodo = useTodoStore((s) => s.updateTodo);
+  const toggleTodo = useTodoStore((s) => s.toggleTodo);
+  const removeTodo = useTodoStore((s) => s.removeTodo);
+  const reorderTodos = useTodoStore((s) => s.reorderTodos);
+  const setSearchQuery = useTodoStore((s) => s.setSearchQuery);
+  const setPriorityFilter = useTodoStore((s) => s.setPriorityFilter);
+  const setCategoryFilter = useTodoStore((s) => s.setCategoryFilter);
+  const setStatusFilter = useTodoStore((s) => s.setStatusFilter);
 
-  const filteredTodos = useFilteredTodos();
-  const categories = useCategories();
+  const filteredTodos = useMemo(
+    () => filterTodos(todos, searchQuery, priorityFilter, categoryFilter, statusFilter),
+    [todos, searchQuery, priorityFilter, categoryFilter, statusFilter]
+  );
+
+  const categories = useMemo(() => deriveCategories(todos), [todos]);
 
   useEffect(() => {
     if (user) fetchTodos();
@@ -94,7 +98,13 @@ export default function App() {
     }
   };
 
-  if (authLoading) return null;
+  if (authLoading) {
+    return (
+      <Center mih="100vh">
+        <Loader size="lg" />
+      </Center>
+    );
+  }
   if (!user) return <LoginPage />;
 
   return (

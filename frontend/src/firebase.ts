@@ -7,7 +7,7 @@ const firebaseConfig = {
   projectId: 'qodo-demo',
   storageBucket: 'qodo-demo.firebasestorage.app',
   messagingSenderId: '600919524846',
-  appId: '1:600919524846:web:c664b3e04ea6bde758faff',
+  appId: '1:600919524846:web:8ce1aa37e11dcea658faff',
 };
 
 const app = initializeApp(firebaseConfig);

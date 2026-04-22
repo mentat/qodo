@@ -56,7 +56,7 @@ export function LoginPage() {
   };
 
   return (
-    <Center mih="100vh" bg="var(--mantine-color-gray-0)" style={{ colorScheme: 'light dark' }}>
+    <Center mih="100vh" bg="var(--mantine-color-body)">
       <Container size={420} w="100%">
         <Title ta="center" mb="md">
           Qodo TODO
