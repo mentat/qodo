@@ -25,6 +25,25 @@ export async function fetchTodos(): Promise<Todo[]> {
   return handleResponse<Todo[]>(res);
 }
 
+export interface SearchOptions {
+  completed?: boolean;
+  priority?: string;
+  limit?: number;
+}
+
+// searchTodos hits the server-side stemmed full-text index. Empty q returns
+// all user todos (the server falls through to List) — the UI treats this
+// endpoint as the single source of truth for the filtered list whenever a
+// query is active.
+export async function searchTodos(q: string, opts: SearchOptions = {}): Promise<Todo[]> {
+  const params = new URLSearchParams({ q });
+  if (opts.completed !== undefined) params.set('completed', String(opts.completed));
+  if (opts.priority) params.set('priority', opts.priority);
+  if (opts.limit) params.set('limit', String(opts.limit));
+  const res = await fetch(`${BASE}/search?${params.toString()}`, { headers: await headers() });
+  return handleResponse<Todo[]>(res);
+}
+
 export async function createTodo(data: TodoCreate): Promise<Todo> {
   const res = await fetch(BASE, {
     method: 'POST',

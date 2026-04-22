@@ -20,8 +20,8 @@ export default function App() {
   const [submitting, setSubmitting] = useState(false);
 
   const todos = useTodoStore((s) => s.todos);
+  const searchHits = useTodoStore((s) => s.searchHits);
   const loading = useTodoStore((s) => s.loading);
-  const searchQuery = useTodoStore((s) => s.searchQuery);
   const priorityFilter = useTodoStore((s) => s.priorityFilter);
   const categoryFilter = useTodoStore((s) => s.categoryFilter);
   const statusFilter = useTodoStore((s) => s.statusFilter);
@@ -36,10 +36,16 @@ export default function App() {
   const setCategoryFilter = useTodoStore((s) => s.setCategoryFilter);
   const setStatusFilter = useTodoStore((s) => s.setStatusFilter);
 
-  const filteredTodos = useMemo(
-    () => filterTodos(todos, searchQuery, priorityFilter, categoryFilter, statusFilter),
-    [todos, searchQuery, priorityFilter, categoryFilter, statusFilter]
-  );
+  // When a search is active, searchHits is the authoritative set — already
+  // stemmed-matched + completed/priority-filtered by the backend. We still
+  // apply category client-side since it's not part of the search index.
+  const filteredTodos = useMemo(() => {
+    if (searchHits !== null) {
+      if (!categoryFilter) return searchHits;
+      return searchHits.filter((t) => t.category === categoryFilter);
+    }
+    return filterTodos(todos, '', priorityFilter, categoryFilter, statusFilter);
+  }, [todos, searchHits, priorityFilter, categoryFilter, statusFilter]);
 
   const categories = useMemo(() => deriveCategories(todos), [todos]);
 

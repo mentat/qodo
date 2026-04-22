@@ -8,11 +8,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
 	"cloud.google.com/go/firestore"
 	"google.golang.org/api/iterator"
+
+	"github.com/mentat/qodo/api/search"
 )
 
 // Todo is the canonical Firestore-mapped todo.
@@ -29,6 +32,16 @@ type Todo struct {
 	UserID      string     `json:"userId" firestore:"userId"`
 	CreatedAt   time.Time  `json:"createdAt" firestore:"createdAt"`
 	UpdatedAt   time.Time  `json:"updatedAt" firestore:"updatedAt"`
+	// FullText is an inverted-index-friendly repeated field of stemmed
+	// tokens derived from Title + Description + Category. It's rebuilt on
+	// every write and queried via array-contains-any for full-text search.
+	// Capped at search.MaxTokens (5) entries.
+	FullText []string `json:"fullText,omitempty" firestore:"fullText,omitempty"`
+}
+
+// buildFullText computes the FullText index entries from a todo's text fields.
+func buildFullText(t Todo) []string {
+	return search.Build(t.Title, t.Description, t.Category)
 }
 
 // ListFilter narrows a List query. Zero value means no filter.
@@ -188,6 +201,7 @@ func (s *TodoService) Create(ctx context.Context, userID string, in CreateInput)
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
+	t.FullText = buildFullText(t)
 
 	ref, _, err := s.col().Add(ctx, t)
 	if err != nil {
@@ -229,7 +243,30 @@ func (s *TodoService) Patch(ctx context.Context, userID, id string, patch map[st
 	if _, err := s.col().Doc(id).Update(ctx, updates); err != nil {
 		return Todo{}, fmt.Errorf("patch todo: %w", err)
 	}
+	// If any of the indexed text fields changed, rebuild FullText in a
+	// second write. Cheap and straightforward — avoids hand-merging the
+	// patch's partial state with the existing record.
+	if touchesText(patch) {
+		cur, err := s.Get(ctx, userID, id)
+		if err != nil {
+			return Todo{}, err
+		}
+		ft := buildFullText(cur)
+		if _, err := s.col().Doc(id).Update(ctx, []firestore.Update{{Path: "fullText", Value: ft}}); err != nil {
+			return Todo{}, fmt.Errorf("patch fullText: %w", err)
+		}
+	}
 	return s.Get(ctx, userID, id)
+}
+
+// touchesText reports whether a patch map modifies any field that feeds FullText.
+func touchesText(patch map[string]any) bool {
+	for _, k := range []string{"title", "description", "category"} {
+		if _, ok := patch[k]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 // Replace does a full replacement of the mutable fields of a todo (keeping
@@ -249,6 +286,7 @@ func (s *TodoService) Replace(ctx context.Context, userID, id string, in Todo) (
 	in.UserID = userID
 	in.CreatedAt = existing.CreatedAt
 	in.UpdatedAt = time.Now().UTC()
+	in.FullText = buildFullText(in)
 	if _, err := s.col().Doc(id).Set(ctx, in); err != nil {
 		return Todo{}, fmt.Errorf("replace todo: %w", err)
 	}
@@ -267,6 +305,78 @@ func (s *TodoService) Delete(ctx context.Context, userID, id string) error {
 		return fmt.Errorf("delete todo: %w", err)
 	}
 	return nil
+}
+
+// Search runs a full-text search against the user's todos using the
+// FullText inverted index. It respects the same Completed / Priority
+// filters as List so the UI can combine search with the status toggle.
+// Behavior:
+//
+//   - Empty or all-stopword query → delegates to List(filter), mirroring
+//     what the UI expects when the search box is cleared.
+//   - Otherwise, issues a Firestore query:
+//     userId == x [AND completed == ?] [AND priority == ?]
+//     AND fullText array-contains-any <tokens>
+//     Tokens are stemmed so "running" matches a todo indexed as "run".
+//   - Firestore requires composite indexes for each equality combination
+//     with an array-contains query; see firestore.indexes.json.
+//   - Results are sorted by position ASC in-memory (adding OrderBy would
+//     require yet another composite index).
+//
+// limit caps the returned slice (0 or <0 → no cap).
+func (s *TodoService) Search(ctx context.Context, userID, query string, limit int, filter ListFilter) ([]Todo, error) {
+	if userID == "" {
+		return nil, ErrUnauthenticated
+	}
+	tokens := search.BuildQuery(query)
+	if len(tokens) == 0 {
+		return s.List(ctx, userID, filter)
+	}
+
+	// Firestore caps array-contains-any at 30 tokens; BuildQuery clamps.
+	q := s.col().
+		Where("userId", "==", userID).
+		Where("fullText", "array-contains-any", toAnySlice(tokens))
+	if filter.Completed != nil {
+		q = q.Where("completed", "==", *filter.Completed)
+	}
+	if filter.Priority != "" {
+		q = q.Where("priority", "==", filter.Priority)
+	}
+
+	iter := q.Documents(ctx)
+	defer iter.Stop()
+
+	var todos []Todo
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("search: %w", err)
+		}
+		var t Todo
+		if err := doc.DataTo(&t); err != nil {
+			return nil, fmt.Errorf("search decode: %w", err)
+		}
+		t.ID = doc.Ref.ID
+		todos = append(todos, t)
+	}
+
+	sort.Slice(todos, func(i, j int) bool { return todos[i].Position < todos[j].Position })
+	if limit > 0 && len(todos) > limit {
+		todos = todos[:limit]
+	}
+	return todos, nil
+}
+
+func toAnySlice(ss []string) []any {
+	out := make([]any, len(ss))
+	for i, s := range ss {
+		out[i] = s
+	}
+	return out
 }
 
 // ReorderItem is a position update targeting a todo ID.

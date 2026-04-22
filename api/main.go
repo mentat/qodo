@@ -98,6 +98,7 @@ func main() {
 		r.Get("/", todoHandler.List)
 		r.Post("/", todoHandler.Create)
 		r.Post("/reorder", todoHandler.Reorder)
+		r.Get("/search", todoHandler.Search)
 		r.Get("/{id}", todoHandler.Get)
 		r.Put("/{id}", todoHandler.Update)
 		r.Patch("/{id}", todoHandler.Patch)

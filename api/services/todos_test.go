@@ -208,6 +208,110 @@ func TestTodoService_ListFiltersAndSearch(t *testing.T) {
 	}
 }
 
+func TestTodoService_SearchStemmed(t *testing.T) {
+	svc, closeFn := newTestService(t)
+	defer closeFn()
+	ctx := context.Background()
+	uid := uniqueUID(t)
+	defer cleanupUser(t, svc, uid)
+
+	_, _ = svc.Create(ctx, uid, services.CreateInput{Title: "Go running today", Priority: "high"})
+	_, _ = svc.Create(ctx, uid, services.CreateInput{Title: "Buy groceries", Description: "milk and eggs"})
+	_, _ = svc.Create(ctx, uid, services.CreateInput{Title: "Walk the dog"})
+
+	// Stemmed hit: query "runs" should match a doc indexed from "running".
+	hits, err := svc.Search(ctx, uid, "runs", 0, services.ListFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) != 1 || !strings.Contains(hits[0].Title, "running") {
+		t.Errorf("stemmed search: %+v", hits)
+	}
+
+	// Multi-token: "milk eggs" should find the groceries todo via description.
+	hits, err = svc.Search(ctx, uid, "milk eggs", 0, services.ListFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) != 1 || hits[0].Title != "Buy groceries" {
+		t.Errorf("multi-token: %+v", hits)
+	}
+
+	// Stopwords only → falls through to List.
+	hits, err = svc.Search(ctx, uid, "the and a", 0, services.ListFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) != 3 {
+		t.Errorf("stopwords only should list all: got %d", len(hits))
+	}
+
+	// No matches.
+	hits, err = svc.Search(ctx, uid, "xyzzy", 0, services.ListFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) != 0 {
+		t.Errorf("xyzzy: %+v", hits)
+	}
+}
+
+func TestTodoService_SearchWithCompletedFilter(t *testing.T) {
+	svc, closeFn := newTestService(t)
+	defer closeFn()
+	ctx := context.Background()
+	uid := uniqueUID(t)
+	defer cleanupUser(t, svc, uid)
+
+	a, _ := svc.Create(ctx, uid, services.CreateInput{Title: "Run a marathon"})
+	_, _ = svc.Create(ctx, uid, services.CreateInput{Title: "Run errands"})
+	svc.Patch(ctx, uid, a.ID, map[string]any{"completed": true})
+
+	tru, fals := true, false
+
+	active, err := svc.Search(ctx, uid, "run", 0, services.ListFilter{Completed: &fals})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(active) != 1 || active[0].Title != "Run errands" {
+		t.Errorf("active-only: %+v", active)
+	}
+	done, err := svc.Search(ctx, uid, "run", 0, services.ListFilter{Completed: &tru})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(done) != 1 || done[0].Title != "Run a marathon" {
+		t.Errorf("completed-only: %+v", done)
+	}
+}
+
+func TestTodoService_FullTextRebuiltOnUpdate(t *testing.T) {
+	svc, closeFn := newTestService(t)
+	defer closeFn()
+	ctx := context.Background()
+	uid := uniqueUID(t)
+	defer cleanupUser(t, svc, uid)
+
+	t1, _ := svc.Create(ctx, uid, services.CreateInput{Title: "original title"})
+	// Search should find it by a stem from the original title.
+	hits, _ := svc.Search(ctx, uid, "original", 0, services.ListFilter{})
+	if len(hits) != 1 {
+		t.Fatalf("pre-patch: %+v", hits)
+	}
+	// Patch the title; fullText should rebuild.
+	svc.Patch(ctx, uid, t1.ID, map[string]any{"title": "completely new words"})
+	// Old stem gone.
+	hits, _ = svc.Search(ctx, uid, "original", 0, services.ListFilter{})
+	if len(hits) != 0 {
+		t.Errorf("post-patch should drop old stem: %+v", hits)
+	}
+	// New stem present.
+	hits, _ = svc.Search(ctx, uid, "words", 0, services.ListFilter{})
+	if len(hits) != 1 {
+		t.Errorf("post-patch should have new stem: %+v", hits)
+	}
+}
+
 func TestTodoService_CreateRequiresUserAndTitle(t *testing.T) {
 	svc, closeFn := newTestService(t)
 	defer closeFn()

@@ -62,11 +62,19 @@ func NewListTodosTool(svc *services.TodoService) (tool.Tool, error) {
 		if uid == "" {
 			return ListTodosOutput{Notice: "internal: missing user context"}, nil
 		}
-		filter := services.ListFilter{Priority: in.Priority, Search: in.Search}
+		filter := services.ListFilter{Priority: in.Priority}
 		if in.Completed != nil {
 			filter.Completed = in.Completed
 		}
-		items, err := svc.List(context.Background(), uid, filter)
+		// Prefer the stemmed full-text index for text queries; fall back
+		// to a plain List when search is empty.
+		var items []services.Todo
+		var err error
+		if strings.TrimSpace(in.Search) != "" {
+			items, err = svc.Search(context.Background(), uid, in.Search, 0, filter)
+		} else {
+			items, err = svc.List(context.Background(), uid, filter)
+		}
 		if err != nil {
 			return ListTodosOutput{Notice: err.Error()}, nil
 		}

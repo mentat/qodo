@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"cloud.google.com/go/firestore"
 	"github.com/go-chi/chi/v5"
@@ -157,6 +158,34 @@ func (h *TodoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// Search runs a stemmed full-text search over the user's todos. Query
+// params: q (required), limit (optional, default 50), completed
+// ("true"|"false", optional), priority (low|medium|high, optional).
+func (h *TodoHandler) Search(w http.ResponseWriter, r *http.Request) {
+	uid := middleware.GetUserID(r.Context())
+	q := r.URL.Query().Get("q")
+	limit := 50
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			limit = n
+		}
+	}
+	var filter services.ListFilter
+	if v := r.URL.Query().Get("completed"); v != "" {
+		b := v == "true"
+		filter.Completed = &b
+	}
+	filter.Priority = r.URL.Query().Get("priority")
+
+	todos, err := h.svc.Search(r.Context(), uid, q, limit, filter)
+	if err != nil {
+		s, m := statusFor(err)
+		writeError(w, s, m)
+		return
+	}
+	writeJSON(w, http.StatusOK, todos)
 }
 
 // Reorder batch-updates positions for todos.

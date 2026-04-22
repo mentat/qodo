@@ -4,6 +4,12 @@ import type { Todo, TodoCreate, TodoUpdate } from '../types/todo';
 
 interface TodoState {
   todos: Todo[];
+  // searchHits holds the server-side stemmed-search result when
+  // searchQuery is non-empty. The UI reads from this in place of todos
+  // for the rendered list. When searchQuery is empty, searchHits is null
+  // and the UI falls back to the full todos list.
+  searchHits: Todo[] | null;
+  searchLoading: boolean;
   loading: boolean;
 
   // Filters
@@ -19,6 +25,7 @@ interface TodoState {
   toggleTodo: (id: string, completed: boolean) => Promise<void>;
   removeTodo: (id: string) => Promise<void>;
   reorderTodos: (startIndex: number, endIndex: number) => Promise<void>;
+  runSearch: () => Promise<void>;
 
   // Filter setters
   setSearchQuery: (query: string) => void;
@@ -29,6 +36,8 @@ interface TodoState {
 
 export const useTodoStore = create<TodoState>((set, get) => ({
   todos: [],
+  searchHits: null,
+  searchLoading: false,
   loading: false,
   searchQuery: '',
   priorityFilter: null,
@@ -96,10 +105,45 @@ export const useTodoStore = create<TodoState>((set, get) => ({
     }
   },
 
-  setSearchQuery: (searchQuery) => set({ searchQuery }),
-  setPriorityFilter: (priorityFilter) => set({ priorityFilter }),
+  runSearch: async () => {
+    const { searchQuery, statusFilter, priorityFilter } = get();
+    const q = searchQuery.trim();
+    if (!q) {
+      set({ searchHits: null, searchLoading: false });
+      return;
+    }
+    set({ searchLoading: true });
+    try {
+      const opts: { completed?: boolean; priority?: string } = {};
+      if (statusFilter === 'active') opts.completed = false;
+      else if (statusFilter === 'done') opts.completed = true;
+      if (priorityFilter) opts.priority = priorityFilter;
+      const hits = await api.searchTodos(q, opts);
+      // Drop results if the query changed while we were fetching.
+      if (get().searchQuery.trim() !== q) return;
+      set({ searchHits: hits });
+    } catch (err) {
+      console.error('search failed', err);
+      set({ searchHits: [] });
+    } finally {
+      set({ searchLoading: false });
+    }
+  },
+
+  setSearchQuery: (searchQuery) => {
+    set({ searchQuery });
+    // Fire-and-forget; the UI reflects the result via searchHits.
+    void get().runSearch();
+  },
+  setPriorityFilter: (priorityFilter) => {
+    set({ priorityFilter });
+    void get().runSearch();
+  },
   setCategoryFilter: (categoryFilter) => set({ categoryFilter }),
-  setStatusFilter: (statusFilter) => set({ statusFilter }),
+  setStatusFilter: (statusFilter) => {
+    set({ statusFilter });
+    void get().runSearch();
+  },
 }));
 
 // Pure filter function — used with useMemo in components to avoid
