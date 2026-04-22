@@ -25,14 +25,19 @@ type SearchNewsOutput struct {
 	Notice   string        `json:"notice,omitempty"`
 }
 
-// NewsArticle is a single flattened article (text already truncated).
+// NewsArticle is a single flattened article.
 type NewsArticle struct {
 	Title       string `json:"title"`
 	Source      string `json:"source"`
 	URL         string `json:"url"`
 	Author      string `json:"author,omitempty"`
 	PublishedAt string `json:"published_at,omitempty"`
-	Text        string `json:"text"`
+	// Summary is an LLM-generated 2–4 sentence digest of the article — the
+	// primary field Marvin should quote from. Empty if summarization failed.
+	Summary string `json:"summary,omitempty"`
+	// Text is the NewsAPI snippet (description + truncated content). Always
+	// present; useful as a fallback when Summary is empty.
+	Text string `json:"text"`
 }
 
 // NewSearchNewsTool wires the NewsAPI client into an ADK function tool.
@@ -67,6 +72,7 @@ func NewSearchNewsTool(client *newsapi.Client) (tool.Tool, error) {
 				URL:         a.URL,
 				Author:      a.Author,
 				PublishedAt: formatTime(a.PublishedAt),
+				Summary:     a.Summary,
 				Text:        a.Text,
 			})
 		}

@@ -97,10 +97,21 @@ func New(ctx context.Context, cfg Config) (*Agent, error) {
 	// Tools.
 	tools := []tool.Tool{}
 
-	// News (optional — only if an API key is available).
+	// News (optional — only if an API key is available). When building from
+	// just an API key, enrich with the article fetcher + Gemini Flash-Lite
+	// summarizer so the model receives actual article bodies (via markdown)
+	// and short LLM-generated summaries — not just NewsAPI's ~260-char
+	// content snippet, which is too short for real grounded answers.
 	newsClient := cfg.NewsAPI
 	if newsClient == nil && cfg.NewsAPIKey != "" {
-		c, err := newsapi.New(cfg.NewsAPIKey)
+		summ, err := newsapi.NewVertexSummarizer(ctx, projectID, location)
+		if err != nil {
+			return nil, fmt.Errorf("agent: news summarizer: %w", err)
+		}
+		c, err := newsapi.New(cfg.NewsAPIKey,
+			newsapi.WithFetcher(newsapi.NewArticleFetcher()),
+			newsapi.WithSummarizer(summ),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("agent: newsapi client: %w", err)
 		}

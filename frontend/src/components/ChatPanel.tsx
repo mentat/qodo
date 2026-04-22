@@ -125,7 +125,13 @@ export function ChatPanel({ opened, onClose }: Props) {
           }}
           disabled={sending}
         />
-        <Button onClick={handleSend} loading={sending} leftSection={<IconSend size={14} />} size="sm">
+        <Button
+          onClick={handleSend}
+          loading={sending}
+          disabled={sending || !text.trim()}
+          leftSection={<IconSend size={14} />}
+          size="sm"
+        >
           Send
         </Button>
       </Group>

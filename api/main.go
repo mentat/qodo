@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -18,6 +19,13 @@ import (
 	"github.com/mentat/qodo/api/middleware"
 	"github.com/mentat/qodo/api/services"
 )
+
+func tail(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[len(s)-n:]
+}
 
 func main() {
 	port := os.Getenv("PORT")
@@ -103,7 +111,12 @@ func main() {
 		r.Delete("/history", agentHandler.ClearHistory)
 	})
 
-	log.Printf("starting server on :%s (marvin model=%s)", port, marvin.ModelName())
+	newsStatus := "DISABLED — set NEWSAPI_API_KEY"
+	if marvinCfg.NewsAPIKey != "" {
+		newsStatus = fmt.Sprintf("enabled (key ends …%s)", tail(marvinCfg.NewsAPIKey, 4))
+	}
+	log.Printf("starting server on :%s (marvin model=%s, news=%s, project=%s)",
+		port, marvin.ModelName(), newsStatus, projectID)
 	if err := http.ListenAndServe(":"+port, r); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}

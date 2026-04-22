@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -36,6 +37,14 @@ type Client struct {
 	baseURL    string
 	httpClient *http.Client
 	charBudget int
+	// Optional enrichments. If fetcher is set, Search populates Article.Markdown
+	// by downloading each article URL and converting the HTML to markdown. If
+	// summarizer is set, Search populates Article.Summary from either the
+	// fetched markdown or the NewsAPI snippet. Enrichments run in parallel
+	// per-article so a search of 5 articles costs ~one fetcher/summarizer
+	// round-trip, not 5.
+	fetcher    *ArticleFetcher
+	summarizer *ArticleSummarizer
 }
 
 // Option configures a Client.
@@ -50,6 +59,17 @@ func WithHTTPClient(h *http.Client) Option { return func(c *Client) { c.httpClie
 // WithCharBudget overrides the per-article character budget (content + description).
 // Defaults to 5000; pass <=0 to disable truncation.
 func WithCharBudget(n int) Option { return func(c *Client) { c.charBudget = n } }
+
+// WithFetcher enables full-article HTML scraping + markdown conversion.
+// When enabled, Article.Markdown is populated for each result (best-effort —
+// fetch failures leave Markdown empty but never fail the whole search).
+func WithFetcher(f *ArticleFetcher) Option { return func(c *Client) { c.fetcher = f } }
+
+// WithSummarizer enables Gemini-powered per-article summaries.
+// When enabled, Article.Summary is populated for each result. Best used in
+// combination with WithFetcher so the summarizer sees full article bodies
+// instead of NewsAPI's ~260-char truncation.
+func WithSummarizer(s *ArticleSummarizer) Option { return func(c *Client) { c.summarizer = s } }
 
 // New constructs a Client. apiKey is required.
 func New(apiKey string, opts ...Option) (*Client, error) {
@@ -75,9 +95,16 @@ type Article struct {
 	URL         string    `json:"url"`
 	Author      string    `json:"author,omitempty"`
 	PublishedAt time.Time `json:"publishedAt"`
-	// Text merges description + content and is truncated to the client's
-	// character budget. Truncation is marked with "…[truncated]".
+	// Text merges NewsAPI's description + content snippet and is truncated
+	// to the client's character budget. This is always present and is the
+	// fallback when Markdown/Summary aren't available.
 	Text string `json:"text"`
+	// Markdown is the scraped article body converted to markdown. Populated
+	// when the client was built with WithFetcher. Empty on scrape failure.
+	Markdown string `json:"markdown,omitempty"`
+	// Summary is a 2–4 sentence LLM-generated summary. Populated when the
+	// client was built with WithSummarizer. Empty on summarization failure.
+	Summary string `json:"summary,omitempty"`
 }
 
 // SearchParams controls the /v2/everything query. Only Query is required.
@@ -163,11 +190,46 @@ func (c *Client) Search(ctx context.Context, p SearchParams) ([]Article, error) 
 		return nil, &APIError{Status: resp.StatusCode, Code: raw.Code, Message: raw.Message}
 	}
 
-	out := make([]Article, 0, len(raw.Articles))
-	for _, a := range raw.Articles {
-		out = append(out, c.normalize(a))
+	out := make([]Article, len(raw.Articles))
+	for i, a := range raw.Articles {
+		out[i] = c.normalize(a)
 	}
+	c.enrich(ctx, out)
 	return out, nil
+}
+
+// enrich runs the optional fetcher + summarizer across all articles in
+// parallel. Each article's enrichment is independent so a stuck site can't
+// stall the whole result set (the fetcher has its own timeout).
+func (c *Client) enrich(ctx context.Context, arts []Article) {
+	if c.fetcher == nil && c.summarizer == nil {
+		return
+	}
+	var wg sync.WaitGroup
+	wg.Add(len(arts))
+	for i := range arts {
+		go func(i int) {
+			defer wg.Done()
+			art := &arts[i]
+			// 1) Scrape + convert HTML to markdown (if fetcher enabled).
+			if c.fetcher != nil && art.URL != "" {
+				if md, err := c.fetcher.Fetch(ctx, art.URL); err == nil && md != "" {
+					art.Markdown = md
+				}
+			}
+			// 2) Summarize via Gemini (if summarizer enabled).
+			if c.summarizer != nil {
+				body := art.Markdown
+				if body == "" {
+					body = art.Text
+				}
+				if s, err := c.summarizer.Summarize(ctx, art.Title, body); err == nil && s != "" {
+					art.Summary = s
+				}
+			}
+		}(i)
+	}
+	wg.Wait()
 }
 
 func (c *Client) normalize(r rawArticle) Article {
