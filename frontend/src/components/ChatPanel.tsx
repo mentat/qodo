@@ -81,7 +81,7 @@ export function ChatPanel({ opened, onClose }: Props) {
         <Stack gap={6} pb="md">
           {messages.length === 0 && !loading && (
             <Text size="sm" c="dimmed" ta="center" py="md">
-              BEEP. Say hi to Marvin — ask about news, Wikipedia, or your todos.
+              BEEP. Say hi to Marvin — we can talk about whatever.
             </Text>
           )}
           {messages.map((m) => (
