@@ -214,12 +214,28 @@ func (a *Agent) Invoke(ctx context.Context, userID, sessionID, message string, h
 	var reply strings.Builder
 	var calls []ToolCallInfo
 
+	debug := os.Getenv("MARVIN_DEBUG_EVENTS") != ""
 	for ev, err := range a.run.Run(ctx, userID, sessionID, content, agent.RunConfig{}) {
 		if err != nil {
 			return InvokeResult{}, fmt.Errorf("agent: run: %w", err)
 		}
 		if ev == nil || ev.LLMResponse.Content == nil {
 			continue
+		}
+		if debug {
+			for _, p := range ev.LLMResponse.Content.Parts {
+				if p == nil {
+					continue
+				}
+				switch {
+				case p.FunctionCall != nil:
+					fmt.Fprintf(os.Stderr, "[marvin-ev] author=%s FunctionCall=%s(%v)\n", ev.Author, p.FunctionCall.Name, p.FunctionCall.Args)
+				case p.FunctionResponse != nil:
+					fmt.Fprintf(os.Stderr, "[marvin-ev] author=%s FunctionResponse=%s => %v\n", ev.Author, p.FunctionResponse.Name, p.FunctionResponse.Response)
+				case p.Text != "":
+					fmt.Fprintf(os.Stderr, "[marvin-ev] author=%s partial=%v Text=%q\n", ev.Author, ev.LLMResponse.Partial, p.Text)
+				}
+			}
 		}
 		// Collect tool calls for logging.
 		for _, p := range ev.LLMResponse.Content.Parts {

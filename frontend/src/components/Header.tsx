@@ -8,7 +8,7 @@ import {
   useMantineColorScheme,
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import { IconSearch, IconSun, IconMoon, IconLogout } from '@tabler/icons-react';
+import { IconSearch, IconSun, IconMoon, IconLogout, IconRobotFace } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
 import type { User } from 'firebase/auth';
 
@@ -16,9 +16,10 @@ interface HeaderProps {
   user: User;
   onSearch: (query: string) => void;
   onSignOut: () => void;
+  onOpenChat: () => void;
 }
 
-export function Header({ user, onSearch, onSignOut }: HeaderProps) {
+export function Header({ user, onSearch, onSignOut, onOpenChat }: HeaderProps) {
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const [search, setSearch] = useState('');
   const [debounced] = useDebouncedValue(search, 300);
@@ -42,6 +43,17 @@ export function Header({ user, onSearch, onSignOut }: HeaderProps) {
           onChange={(e) => setSearch(e.currentTarget.value)}
           w={250}
         />
+
+        <ActionIcon
+          variant="filled"
+          color="teal"
+          size="lg"
+          onClick={onOpenChat}
+          aria-label="Talk to Marvin"
+          title="Talk to Marvin"
+        >
+          <IconRobotFace size={20} />
+        </ActionIcon>
 
         <ActionIcon
           variant="default"

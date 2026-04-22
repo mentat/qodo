@@ -1,7 +1,8 @@
 import { auth } from '../firebase';
 import type { Todo, TodoCreate, TodoUpdate } from '../types/todo';
+import { API_BASE } from './base';
 
-const BASE = '/api/todos';
+const BASE = `${API_BASE}/api/todos`;
 
 async function headers(): Promise<HeadersInit> {
   const token = await auth.currentUser?.getIdToken();

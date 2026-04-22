@@ -8,12 +8,14 @@ import { Header } from './components/Header';
 import { TodoFilters } from './components/TodoFilters';
 import { TodoList } from './components/TodoList';
 import { TodoForm, type FormValues } from './components/TodoForm';
+import { ChatPanel } from './components/ChatPanel';
 import { useTodoStore, filterTodos, deriveCategories } from './store/todoStore';
 import type { Todo } from './types/todo';
 
 export default function App() {
   const { user, loading: authLoading, signOut } = useAuth();
   const [formOpen, setFormOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -110,7 +112,12 @@ export default function App() {
   return (
     <AppShell header={{ height: 60 }} padding="md">
       <AppShell.Header>
-        <Header user={user} onSearch={setSearchQuery} onSignOut={signOut} />
+        <Header
+          user={user}
+          onSearch={setSearchQuery}
+          onSignOut={signOut}
+          onOpenChat={() => setChatOpen(true)}
+        />
       </AppShell.Header>
 
       <AppShell.Main>
@@ -145,6 +152,8 @@ export default function App() {
             onReorder={handleReorder}
           />
         </Container>
+
+        <ChatPanel opened={chatOpen} onClose={() => setChatOpen(false)} />
 
         <Modal
           opened={formOpen}

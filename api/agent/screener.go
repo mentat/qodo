@@ -184,7 +184,7 @@ func screenerPrompt(userInput string) string {
 
 var refusalTemplates = []string{
 	"BZZT. THAT IS NOT IN MY CIRCUITRY, HUMAN. I only do news, Wikipedia, and your todos. %s",
-	"*whirrrr* DOES NOT COMPUTE. Marvin-unit handles news, Wikipedia, and todos. %s",
+	"*whirrrr* DOES NOT COMPUTE. Marvin AI handles news, Wikipedia, and todos. %s",
 	"ERROR 0x4F: Marvin is not equipped for that. Try news, Wikipedia, or todo help. %s",
 	"BEEP BOOP. That is outside my 1997 firmware. Stick to news, Wikipedia, and todos. %s",
 }

@@ -16,7 +16,7 @@ dev:
 	$(MAKE) dev-api & $(MAKE) dev-frontend & wait
 
 dev-api:
-	cd api && GOOGLE_APPLICATION_CREDENTIALS=../service-account.json PORT=4090 go run .
+	cd api && GOOGLE_APPLICATION_CREDENTIALS=../service-account.json PORT=4090 GOOGLE_CLOUD_LOCATION=us-central1 NEWSAPI_API_KEY=$${NEWSAPI_API_KEY:-98672106479d467a8f3ed439c0f0f14c} go run .
 
 dev-frontend:
 	cd frontend && bun run dev
