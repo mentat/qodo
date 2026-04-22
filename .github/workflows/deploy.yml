@@ -1,0 +1,86 @@
+name: Deploy to Cloud Run & Firebase Hosting
+
+on:
+  push:
+    branches: [main]
+
+env:
+  PROJECT_ID: qodo-demo
+  REGION: us-central1
+  AR_REPO: us-central1-docker.pkg.dev/qodo-demo/qodo
+
+jobs:
+  deploy-api:
+    runs-on: ubuntu-latest
+    outputs:
+      api_url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Build and Push API Image
+        run: |
+          docker build -t ${{ env.AR_REPO }}/qodo-api:${{ github.sha }} ./api
+          docker push ${{ env.AR_REPO }}/qodo-api:${{ github.sha }}
+
+      - id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: qodo-api
+          region: ${{ env.REGION }}
+          image: ${{ env.AR_REPO }}/qodo-api:${{ github.sha }}
+          env_vars: |
+            GOOGLE_CLOUD_PROJECT=qodo-demo
+          flags: --allow-unauthenticated
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    needs: deploy-api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install and Build Frontend
+        run: |
+          cd frontend
+          bun install
+          bun run build
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.GCP_SA_KEY }}'
+          channelId: live
+          projectId: ${{ env.PROJECT_ID }}
+
+  deploy-firestore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Deploy Firestore Rules and Indexes
+        run: firebase deploy --only firestore --project ${{ env.PROJECT_ID }}
