@@ -38,14 +38,7 @@ func NewListEventsTool(svc *services.EventService) (tool.Tool, error) {
 		if uid == "" {
 			return ListEventsOutput{Notice: "internal: missing user context"}, nil
 		}
-		now := time.Now().UTC()
-		from, to := now.AddDate(0, 0, -7), now.AddDate(0, 0, 30)
-		if t, err := parseDueDate(in.From); err == nil && t != nil {
-			from = *t
-		}
-		if t, err := parseDueDate(in.To); err == nil && t != nil {
-			to = *t
-		}
+		from, to := eventRange(in.From, in.To, time.Now().UTC())
 		items, err := svc.ListRange(context.Background(), uid, from, to)
 		if err != nil {
 			return ListEventsOutput{Notice: err.Error()}, nil
@@ -172,6 +165,29 @@ func NewDeleteEventTool(svc *services.EventService) (tool.Tool, error) {
 		Name:        "delete_event",
 		Description: "Delete a calendar event by id.",
 	}, handler)
+}
+
+// eventRange resolves the from/to args for list_events into an absolute,
+// day-inclusive [from, to) window. Defaults to the past week through 30 days
+// out. A date-only 'to' (midnight) is extended to end-of-day so afternoon
+// events aren't excluded, and an empty/inverted window is widened to a full
+// day — so a single-day query (from == to) still matches that day's events.
+func eventRange(fromStr, toStr string, now time.Time) (time.Time, time.Time) {
+	from := now.AddDate(0, 0, -7)
+	to := now.AddDate(0, 0, 30)
+	if t, err := parseDueDate(fromStr); err == nil && t != nil {
+		from = *t
+	}
+	if t, err := parseDueDate(toStr); err == nil && t != nil {
+		to = *t
+		if to.Equal(to.Truncate(24 * time.Hour)) {
+			to = to.Add(24 * time.Hour)
+		}
+	}
+	if !to.After(from) {
+		to = from.Add(24 * time.Hour)
+	}
+	return from, to
 }
 
 func toEventOut(e services.Event) EventOut {
