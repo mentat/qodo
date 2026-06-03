@@ -14,6 +14,7 @@ import { ContactsApp } from './components/Contacts/ContactsApp';
 import { NotesApp } from './components/Notes/NotesApp';
 import { RadioApp } from './components/Radio/RadioApp';
 import { WeatherApp } from './components/Weather/WeatherApp';
+import { RiskApp } from './components/Risk/RiskApp';
 import { useUIStore } from './store/uiStore';
 import { useTodoStore } from './store/todoStore';
 import { useMailStore } from './store/mailStore';
@@ -28,6 +29,7 @@ const TITLES: Record<string, string> = {
   '/notes': 'Notes',
   '/radio': 'Radio',
   '/weather': 'Weather',
+  '/risk': 'Risk',
 };
 
 export default function App() {
@@ -102,6 +104,7 @@ export default function App() {
           <Route path="/notes" element={<NotesApp />} />
           <Route path="/radio" element={<RadioApp />} />
           <Route path="/weather" element={<WeatherApp />} />
+          <Route path="/risk" element={<RiskApp />} />
           <Route path="*" element={<Navigate to="/todos" replace />} />
         </Routes>
         <ChatPanel opened={chatOpen} onClose={closeChat} />

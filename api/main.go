@@ -22,6 +22,7 @@ import (
 	"github.com/mentat/qodo/api/handlers"
 	"github.com/mentat/qodo/api/middleware"
 	"github.com/mentat/qodo/api/services"
+	"github.com/mentat/qodo/api/services/risk"
 )
 
 func tail(s string, n int) string {
@@ -90,6 +91,29 @@ func main() {
 
 	seedSvc := services.NewSeedService(fsClient, emailSvc, eventSvc, contactSvc, noteSvc)
 	demoHandler := handlers.NewDemoHandler(seedSvc)
+
+	// Risk: world-conquest game. The Store wraps the Firestore-backed
+	// Persistence layer and (optionally) a Pub/Sub publisher so AI turns run
+	// asynchronously on the backend — same pattern as the email-replies
+	// pipeline above. The AI worker reads/writes the same Persistence and
+	// streams sub-step updates to the client via onSnapshot.
+	riskPersist := risk.NewPersistence(fsClient)
+	riskStore := risk.NewStore(riskPersist)
+	if pub, perr := pubsubclient.NewPublisher(ctx, projectID, "risk-turns"); perr != nil {
+		log.Printf("risk pubsub publisher disabled: %v", perr)
+	} else {
+		riskStore = riskStore.WithPublisher(pub)
+		defer pub.Close()
+		log.Printf("risk pubsub publisher ready (topic=risk-turns)")
+	}
+	riskAI := agent.NewRiskAI(riskStore)
+	riskHandler := handlers.NewRiskHandler(riskStore)
+	riskPubsubHandler := handlers.NewRiskPubsubHandler(handlers.RiskPubsubConfig{
+		Store:     riskStore,
+		AI:        riskAI,
+		Receipts:  handlers.NewFirestoreReceipts(fsClient, "pubsubReceipts"),
+		PushToken: os.Getenv("PUBSUB_PUSH_TOKEN"),
+	})
 
 	// Build Marvin. Any failure here is fatal — the agent is a product requirement.
 	marvinCfg := agent.Config{
@@ -227,6 +251,22 @@ func main() {
 		r.Delete("/{id}", noteHandler.Delete)
 	})
 
+	r.Route("/api/risk", func(r chi.Router) {
+		r.Use(authMw.Verify)
+		r.Get("/", riskHandler.Get)
+		r.Post("/new", riskHandler.New)
+		r.Get("/stats", riskHandler.Stats)
+		r.Post("/place-initial", riskHandler.PlaceInitial)
+		r.Post("/place", riskHandler.Place)
+		r.Post("/trade", riskHandler.Trade)
+		r.Post("/attack", riskHandler.Attack)
+		r.Post("/post-conquest", riskHandler.PostConquest)
+		r.Post("/fortify", riskHandler.Fortify)
+		r.Post("/end-phase", riskHandler.EndPhase)
+		r.Post("/skip-fortify", riskHandler.SkipFortify)
+		r.Post("/surrender", riskHandler.Surrender)
+	})
+
 	r.Route("/api/demo", func(r chi.Router) {
 		r.Use(authMw.Verify)
 		r.Post("/seed", demoHandler.Seed)
@@ -246,6 +286,7 @@ func main() {
 		r.Post("/api/pubsub/email-reply", pubsubHandler.EmailReply)
 		r.Post("/api/pubsub/drip", pubsubHandler.Drip)
 	}
+	r.Post("/api/pubsub/risk-turn", riskPubsubHandler.Turn)
 
 	newsStatus := "DISABLED — set NEWSAPI_API_KEY"
 	if marvinCfg.NewsAPIKey != "" {

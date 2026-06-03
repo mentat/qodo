@@ -14,6 +14,7 @@ import {
 import { IconSend, IconTrash, IconVolume, IconVolumeOff } from '@tabler/icons-react';
 import { useChatStore } from '../store/chatStore';
 import { useTTSStore } from '../store/ttsStore';
+import { useUIStore } from '../store/uiStore';
 import { stopVoice } from '../audio/marvinVoice';
 import type { ChatMessage } from '../api/agent';
 import { MarvinRobot } from './MarvinRobot';
@@ -45,6 +46,15 @@ export function ChatPanel({ opened, onClose }: Props) {
   useEffect(() => {
     if (opened) load();
   }, [opened, load]);
+
+  // Apps (e.g. Risk) can pre-fill the chat box with a contextual question
+  // via uiStore.openChatWithPrefill. Consume it once on open.
+  const consumePrefill = useUIStore((s) => s.consumePrefill);
+  useEffect(() => {
+    if (!opened) return;
+    const pre = consumePrefill();
+    if (pre) setText(pre);
+  }, [opened, consumePrefill]);
 
   // Scroll to the bottom when the transcript grows. useLayoutEffect runs
   // synchronously after the DOM has been updated so scrollHeight already

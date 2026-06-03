@@ -9,6 +9,7 @@ import {
   IconNotes,
   IconRadio,
   IconCloud,
+  IconWorld,
   type Icon,
 } from '@tabler/icons-react';
 import { useMailStore, totalUnread } from '../store/mailStore';
@@ -21,6 +22,7 @@ const APPS: { path: string; label: string; Icon: Icon }[] = [
   { path: '/notes', label: 'Notes', Icon: IconNotes },
   { path: '/radio', label: 'Radio', Icon: IconRadio },
   { path: '/weather', label: 'Weather', Icon: IconCloud },
+  { path: '/risk', label: 'Risk', Icon: IconWorld },
 ];
 
 export function NavRail() {

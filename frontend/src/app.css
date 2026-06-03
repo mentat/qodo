@@ -145,3 +145,11 @@
 @media (prefers-reduced-motion: reduce) {
   .marvin-robot, .marvin-robot * { animation: none !important; }
 }
+
+/* ── Risk dice roll: short tumble before settling on the result ─────────── */
+@keyframes riskDieRoll {
+  0%   { transform: rotate(-20deg) scale(0.85); opacity: 0; }
+  40%  { transform: rotate(15deg) scale(1.05); opacity: 1; }
+  70%  { transform: rotate(-6deg) scale(0.98); }
+  100% { transform: rotate(0deg) scale(1); }
+}

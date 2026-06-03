@@ -7,6 +7,18 @@
       "runtimeArgs": ["vite", "--host", "--port", "4091"],
       "cwd": "${workspaceFolder}/frontend",
       "port": 4091
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["run", "."],
+      "cwd": "${workspaceFolder}/api",
+      "port": 4090,
+      "env": {
+        "PORT": "4090",
+        "GOOGLE_APPLICATION_CREDENTIALS": "/Users/jesselovelace/code/qodo-demo/service-account.json",
+        "GOOGLE_CLOUD_LOCATION": "us-central1"
+      }
     }
   ]
 }
