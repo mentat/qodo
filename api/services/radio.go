@@ -26,7 +26,8 @@ var defaultTracks = []Track{
 }
 
 // RadioTracks returns the configured track list. If the RADIO_TRACKS env var
-// holds a JSON array of tracks, it overrides the defaults.
+// holds a JSON array of tracks, it overrides the defaults. The URLs here are
+// the (possibly non-CORS) upstreams — clients receive proxied stream URLs.
 func RadioTracks() []Track {
 	if raw := os.Getenv("RADIO_TRACKS"); raw != "" {
 		var tracks []Track
@@ -35,4 +36,14 @@ func RadioTracks() []Track {
 		}
 	}
 	return defaultTracks
+}
+
+// RadioTrackByID returns the upstream track for a given id.
+func RadioTrackByID(id string) (Track, bool) {
+	for _, t := range RadioTracks() {
+		if t.ID == id {
+			return t, true
+		}
+	}
+	return Track{}, false
 }

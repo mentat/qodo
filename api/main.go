@@ -18,6 +18,7 @@ import (
 	"github.com/mentat/qodo/api/agent"
 	"github.com/mentat/qodo/api/chat"
 	pubsubclient "github.com/mentat/qodo/api/clients/pubsub"
+	ttsclient "github.com/mentat/qodo/api/clients/tts"
 	"github.com/mentat/qodo/api/handlers"
 	"github.com/mentat/qodo/api/middleware"
 	"github.com/mentat/qodo/api/services"
@@ -109,7 +110,18 @@ func main() {
 		log.Fatalf("failed to initialize screener: %v", err)
 	}
 	chatStore := chat.NewStore(fsClient)
-	agentHandler := handlers.NewAgentHandler(marvin, screener, chatStore)
+
+	// Text-to-speech for Marvin's voice replies. Best-effort: if creds aren't
+	// available locally the handler just omits audio from chat responses.
+	var marvinTTS handlers.TTSSynthesizer
+	if t, terr := ttsclient.New(ctx); terr != nil {
+		log.Printf("tts disabled: %v", terr)
+	} else {
+		marvinTTS = t
+		defer t.Close()
+		log.Printf("tts ready (voice=%s)", ttsclient.DefaultVoiceName)
+	}
+	agentHandler := handlers.NewAgentHandler(marvin, screener, chatStore, marvinTTS)
 
 	// Reply worker for the async email pipeline. Best-effort: if Vertex init
 	// fails we just don't register the Pub/Sub push routes.
@@ -151,6 +163,10 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"ok"}`))
 	})
+
+	// Public radio stream proxy — the <audio> element can't send an auth
+	// header, and it serves only fixed, non-sensitive tracks.
+	r.Get("/api/radio/stream", radioHandler.Stream)
 
 	r.Route("/api/todos", func(r chi.Router) {
 		r.Use(authMw.Verify)

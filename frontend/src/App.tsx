@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppShell, Center, Loader } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useAuth } from './hooks/useAuth';
@@ -13,25 +14,25 @@ import { ContactsApp } from './components/Contacts/ContactsApp';
 import { NotesApp } from './components/Notes/NotesApp';
 import { RadioApp } from './components/Radio/RadioApp';
 import { WeatherApp } from './components/Weather/WeatherApp';
-import { useUIStore, type AppId } from './store/uiStore';
+import { useUIStore } from './store/uiStore';
 import { useTodoStore } from './store/todoStore';
 import { useMailStore } from './store/mailStore';
 import { useEventStore } from './store/eventStore';
 import { seedDemo, resetDemo } from './api/demo';
 
-const APP_TITLES: Record<AppId, string> = {
-  todos: 'Todos',
-  mail: 'Mail',
-  calendar: 'Calendar',
-  contacts: 'Contacts',
-  notes: 'Notes',
-  radio: 'Radio',
-  weather: 'Weather',
+const TITLES: Record<string, string> = {
+  '/todos': 'Todos',
+  '/mail': 'Mail',
+  '/calendar': 'Calendar',
+  '/contacts': 'Contacts',
+  '/notes': 'Notes',
+  '/radio': 'Radio',
+  '/weather': 'Weather',
 };
 
 export default function App() {
   const { user, loading: authLoading, signOut } = useAuth();
-  const activeApp = useUIStore((s) => s.activeApp);
+  const { pathname } = useLocation();
   const chatOpen = useUIStore((s) => s.chatOpen);
   const openChat = useUIStore((s) => s.openChat);
   const closeChat = useUIStore((s) => s.closeChat);
@@ -75,22 +76,12 @@ export default function App() {
   }
   if (!user) return <LoginPage />;
 
-  const screen: Record<AppId, ReactNode> = {
-    todos: <TodosApp />,
-    mail: <MailApp />,
-    calendar: <CalendarApp />,
-    contacts: <ContactsApp />,
-    notes: <NotesApp />,
-    radio: <RadioApp />,
-    weather: <WeatherApp />,
-  };
-
   return (
     <AppShell header={{ height: 60 }} navbar={{ width: 84, breakpoint: 0 }} padding="md">
       <AppShell.Header>
         <Header
           user={user}
-          title={APP_TITLES[activeApp]}
+          title={TITLES[pathname] ?? 'Synthwave OS'}
           onSignOut={signOut}
           onOpenChat={openChat}
           onResetDemo={handleReset}
@@ -102,7 +93,17 @@ export default function App() {
       </AppShell.Navbar>
 
       <AppShell.Main>
-        {screen[activeApp]}
+        <Routes>
+          <Route path="/" element={<Navigate to="/todos" replace />} />
+          <Route path="/todos" element={<TodosApp />} />
+          <Route path="/mail" element={<MailApp />} />
+          <Route path="/calendar" element={<CalendarApp />} />
+          <Route path="/contacts" element={<ContactsApp />} />
+          <Route path="/notes" element={<NotesApp />} />
+          <Route path="/radio" element={<RadioApp />} />
+          <Route path="/weather" element={<WeatherApp />} />
+          <Route path="*" element={<Navigate to="/todos" replace />} />
+        </Routes>
         <ChatPanel opened={chatOpen} onClose={closeChat} />
       </AppShell.Main>
     </AppShell>

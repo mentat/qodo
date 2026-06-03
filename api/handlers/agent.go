@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -12,28 +15,42 @@ import (
 	"github.com/mentat/qodo/api/middleware"
 )
 
+// TTSSynthesizer is the minimal surface AgentHandler needs from the TTS
+// client. Kept as an interface so tests don't need to hit Google.
+type TTSSynthesizer interface {
+	Synthesize(ctx context.Context, text string) ([]byte, string, error)
+}
+
 // AgentHandler owns the /api/agent/* HTTP endpoints.
 type AgentHandler struct {
 	agent    *agent.Agent
 	screener *agent.Screener
 	store    *chat.Store
+	tts      TTSSynthesizer // nil = voice replies disabled
 }
 
 // NewAgentHandler wires the agent, screener, and chat store together.
-func NewAgentHandler(a *agent.Agent, s *agent.Screener, store *chat.Store) *AgentHandler {
-	return &AgentHandler{agent: a, screener: s, store: store}
+// Pass a non-nil tts to enable voice replies (Marvin speaks every turn).
+func NewAgentHandler(a *agent.Agent, s *agent.Screener, store *chat.Store, tts TTSSynthesizer) *AgentHandler {
+	return &AgentHandler{agent: a, screener: s, store: store, tts: tts}
 }
 
 type chatRequest struct {
 	Message string `json:"message"`
 }
 
+type audioPayload struct {
+	Data string `json:"data"` // base64-encoded audio bytes
+	Mime string `json:"mime"` // e.g. "audio/mpeg"
+}
+
 type chatResponse struct {
-	Reply     string          `json:"reply"`
-	ToolCalls []toolCallJSON  `json:"toolCalls,omitempty"`
-	Screened  bool            `json:"screened,omitempty"`
-	Reason    string          `json:"reason,omitempty"`
-	Messages  []chat.Message  `json:"messages,omitempty"` // new messages persisted this turn
+	Reply     string         `json:"reply"`
+	ToolCalls []toolCallJSON `json:"toolCalls,omitempty"`
+	Screened  bool           `json:"screened,omitempty"`
+	Reason    string         `json:"reason,omitempty"`
+	Messages  []chat.Message `json:"messages,omitempty"` // new messages persisted this turn
+	Audio     *audioPayload  `json:"audio,omitempty"`    // Marvin's reply, voiced
 }
 
 type toolCallJSON struct {
@@ -93,6 +110,7 @@ func (h *AgentHandler) Chat(w http.ResponseWriter, r *http.Request) {
 			Screened: true,
 			Reason:   verdict.Reason,
 			Messages: []chat.Message{userMsg, asst},
+			Audio:    h.voice(r.Context(), refusal),
 		})
 		return
 	}
@@ -120,7 +138,25 @@ func (h *AgentHandler) Chat(w http.ResponseWriter, r *http.Request) {
 		Reply:     reply,
 		ToolCalls: tc,
 		Messages:  []chat.Message{userMsg, asst},
+		Audio:     h.voice(r.Context(), reply),
 	})
+}
+
+// voice synthesizes Marvin's reply to MP3. Best-effort: TTS failures (network,
+// quota, missing creds) log and return nil so the chat response still ships.
+func (h *AgentHandler) voice(ctx context.Context, text string) *audioPayload {
+	if h.tts == nil || text == "" {
+		return nil
+	}
+	audio, mime, err := h.tts.Synthesize(ctx, text)
+	if err != nil {
+		log.Printf("tts synthesize failed: %v", err)
+		return nil
+	}
+	return &audioPayload{
+		Data: base64.StdEncoding.EncodeToString(audio),
+		Mime: mime,
+	}
 }
 
 // History is GET /api/agent/history?limit=N.

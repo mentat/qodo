@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Stack, Tooltip, UnstyledButton, Text, Badge } from '@mantine/core';
 import {
   IconChecklist,
@@ -10,34 +11,34 @@ import {
   IconCloud,
   type Icon,
 } from '@tabler/icons-react';
-import { useUIStore, type AppId } from '../store/uiStore';
 import { useMailStore, totalUnread } from '../store/mailStore';
 
-const APPS: { id: AppId; label: string; Icon: Icon }[] = [
-  { id: 'todos', label: 'Todos', Icon: IconChecklist },
-  { id: 'mail', label: 'Mail', Icon: IconMail },
-  { id: 'calendar', label: 'Calendar', Icon: IconCalendar },
-  { id: 'contacts', label: 'Contacts', Icon: IconAddressBook },
-  { id: 'notes', label: 'Notes', Icon: IconNotes },
-  { id: 'radio', label: 'Radio', Icon: IconRadio },
-  { id: 'weather', label: 'Weather', Icon: IconCloud },
+const APPS: { path: string; label: string; Icon: Icon }[] = [
+  { path: '/todos', label: 'Todos', Icon: IconChecklist },
+  { path: '/mail', label: 'Mail', Icon: IconMail },
+  { path: '/calendar', label: 'Calendar', Icon: IconCalendar },
+  { path: '/contacts', label: 'Contacts', Icon: IconAddressBook },
+  { path: '/notes', label: 'Notes', Icon: IconNotes },
+  { path: '/radio', label: 'Radio', Icon: IconRadio },
+  { path: '/weather', label: 'Weather', Icon: IconCloud },
 ];
 
 export function NavRail() {
-  const activeApp = useUIStore((s) => s.activeApp);
-  const setActiveApp = useUIStore((s) => s.setActiveApp);
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
   const emails = useMailStore((s) => s.emails);
   const unread = useMemo(() => totalUnread(emails), [emails]);
 
   return (
     <Stack gap={6} p="xs" align="stretch">
-      {APPS.map(({ id, label, Icon }) => {
-        const active = id === activeApp;
+      {APPS.map(({ path, label, Icon }) => {
+        const active = pathname === path || (path === '/todos' && pathname === '/');
         return (
-          <Tooltip key={id} label={label} position="right" withArrow>
+          <Tooltip key={path} label={label} position="right" withArrow>
             <UnstyledButton
-              onClick={() => setActiveApp(id)}
+              onClick={() => navigate(path)}
               aria-label={label}
+              aria-current={active ? 'page' : undefined}
               style={{
                 position: 'relative',
                 display: 'flex',
@@ -57,7 +58,7 @@ export function NavRail() {
               <Text size="10px" fw={active ? 700 : 500}>
                 {label}
               </Text>
-              {id === 'mail' && unread > 0 && (
+              {path === '/mail' && unread > 0 && (
                 <Badge
                   size="sm"
                   circle={unread <= 9}

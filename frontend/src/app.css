@@ -84,3 +84,64 @@
   padding-left: 0.8em;
   color: var(--mantine-color-dimmed);
 }
+
+/* ── Marvin animated SVG robot (chat panel) ──────────────────────────────── */
+.marvin-robot {
+  animation: marvinFloat 3.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 7px rgba(155, 93, 229, 0.45));
+}
+.marvin-robot.thinking {
+  animation-duration: 1.5s;
+}
+@keyframes marvinFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.marvin-antenna-tip {
+  transform-box: fill-box;
+  transform-origin: center;
+  filter: drop-shadow(0 0 5px #ff2e97);
+  animation: marvinPulse 1.8s ease-in-out infinite;
+}
+.marvin-robot.thinking .marvin-antenna-tip {
+  animation-duration: 0.5s;
+}
+@keyframes marvinPulse {
+  0%, 100% { opacity: 0.55; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.25); }
+}
+
+.marvin-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  filter: drop-shadow(0 0 4px #39ff14);
+  animation: marvinBlink 5s ease-in-out infinite;
+}
+.marvin-eye-2 { animation-delay: 0.15s; }
+.marvin-robot.thinking .marvin-eye { animation-duration: 1.4s; }
+@keyframes marvinBlink {
+  0%, 90%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.12); }
+}
+
+/* Mouth bars: flat-ish when idle, equalizer "talk" while thinking. */
+.marvin-bar {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  transform: scaleY(0.35);
+}
+.marvin-robot.thinking .marvin-bar { animation: marvinTalk 0.7s ease-in-out infinite; }
+.marvin-robot.thinking .marvin-bar:nth-child(1) { animation-delay: 0s; }
+.marvin-robot.thinking .marvin-bar:nth-child(2) { animation-delay: 0.1s; }
+.marvin-robot.thinking .marvin-bar:nth-child(3) { animation-delay: 0.2s; }
+.marvin-robot.thinking .marvin-bar:nth-child(4) { animation-delay: 0.15s; }
+.marvin-robot.thinking .marvin-bar:nth-child(5) { animation-delay: 0.05s; }
+@keyframes marvinTalk {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marvin-robot, .marvin-robot * { animation: none !important; }
+}

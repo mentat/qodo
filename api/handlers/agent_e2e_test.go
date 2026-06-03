@@ -74,7 +74,7 @@ func TestAgent_E2E_FullStack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("screener: %v", err)
 	}
-	h := handlers.NewAgentHandler(marvin, screener, store)
+	h := handlers.NewAgentHandler(marvin, screener, store, nil)
 
 	uid := fmt.Sprintf("test-e2e-%d", time.Now().UnixNano())
 	// Cleanup Firestore after test.
