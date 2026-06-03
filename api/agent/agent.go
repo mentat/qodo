@@ -148,6 +148,13 @@ func New(ctx context.Context, cfg Config) (*Agent, error) {
 	}
 	tools = append(tools, wtool)
 
+	// Weather — always available (mocked, no external dependency or user scope).
+	weatherTool, err := NewGetWeatherTool()
+	if err != nil {
+		return nil, err
+	}
+	tools = append(tools, weatherTool)
+
 	// Todo tools.
 	listT, err := NewListTodosTool(cfg.TodoService)
 	if err != nil {
