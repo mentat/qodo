@@ -28,12 +28,18 @@ export interface ToolCall {
   result?: string;
 }
 
+export interface AudioPayload {
+  data: string; // base64-encoded audio bytes
+  mime: string; // e.g. "audio/mpeg"
+}
+
 export interface ChatResponse {
   reply: string;
   toolCalls?: ToolCall[];
   screened?: boolean;
   reason?: string;
   messages?: ChatMessage[];
+  audio?: AudioPayload;
 }
 
 async function handle<T>(res: Response): Promise<T> {

@@ -3,6 +3,8 @@ import { sendMessage, fetchHistory, clearHistory, type ChatMessage, type ToolCal
 import { useTodoStore } from './todoStore';
 import { useContactStore } from './contactStore';
 import { useNoteStore } from './noteStore';
+import { useTTSStore } from './ttsStore';
+import { playVoice } from '../audio/marvinVoice';
 
 interface ChatState {
   messages: ChatMessage[];
@@ -72,6 +74,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
           lastToolCalls: res.toolCalls ?? [],
         };
       });
+
+      // Speak Marvin's reply unless the user has muted (preference persisted).
+      if (res.audio && !useTTSStore.getState().muted) {
+        playVoice(res.audio.data, res.audio.mime);
+      }
 
       // Refresh non-realtime stores Marvin may have mutated. (Mail + calendar
       // update live via Firestore listeners, so they're omitted.)

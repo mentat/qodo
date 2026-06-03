@@ -11,8 +11,10 @@ import {
   Button,
   Tooltip,
 } from '@mantine/core';
-import { IconSend, IconTrash } from '@tabler/icons-react';
+import { IconSend, IconTrash, IconVolume, IconVolumeOff } from '@tabler/icons-react';
 import { useChatStore } from '../store/chatStore';
+import { useTTSStore } from '../store/ttsStore';
+import { stopVoice } from '../audio/marvinVoice';
 import type { ChatMessage } from '../api/agent';
 import { MarvinRobot } from './MarvinRobot';
 
@@ -29,8 +31,16 @@ export function ChatPanel({ opened, onClose }: Props) {
   const load = useChatStore((s) => s.load);
   const send = useChatStore((s) => s.send);
   const reset = useChatStore((s) => s.reset);
+  const muted = useTTSStore((s) => s.muted);
+  const toggleMuted = useTTSStore((s) => s.toggleMuted);
   const [text, setText] = useState('');
   const viewportRef = useRef<HTMLDivElement>(null);
+
+  // Muting also cuts any reply Marvin is mid-way through speaking.
+  const onToggleMute = () => {
+    if (!muted) stopVoice();
+    toggleMuted();
+  };
 
   useEffect(() => {
     if (opened) load();
@@ -70,11 +80,24 @@ export function ChatPanel({ opened, onClose }: Props) {
         <Text size="xs" c="dimmed">
           {sending ? '*whirrrr* processing…' : loading ? 'booting…' : 'online (barely)'}
         </Text>
-        <Tooltip label="Wipe chat history">
-          <ActionIcon variant="subtle" color="red" onClick={() => void reset()} size="sm">
-            <IconTrash size={14} />
-          </ActionIcon>
-        </Tooltip>
+        <Group gap={2}>
+          <Tooltip label={muted ? 'Unmute Marvin' : 'Mute Marvin'}>
+            <ActionIcon
+              variant="subtle"
+              color={muted ? 'gray' : 'synthPurple'}
+              onClick={onToggleMute}
+              size="sm"
+              aria-label={muted ? 'Unmute Marvin' : 'Mute Marvin'}
+            >
+              {muted ? <IconVolumeOff size={16} /> : <IconVolume size={16} />}
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label="Wipe chat history">
+            <ActionIcon variant="subtle" color="red" onClick={() => void reset()} size="sm">
+              <IconTrash size={14} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
       </Group>
 
       <ScrollArea viewportRef={viewportRef} style={{ flex: 1, minHeight: 0 }} type="auto">
