@@ -47,6 +47,7 @@ jobs:
           image: ${{ env.AR_REPO }}/qodo-api:${{ github.sha }}
           env_vars: |
             GOOGLE_CLOUD_PROJECT=qodo-demo
+            PUBSUB_PUSH_AUDIENCE=qodo-pubsub
           flags: --allow-unauthenticated
 
   deploy-frontend:

@@ -23,3 +23,51 @@
   --mantine-color-placeholder: #8a8a95;
   --mantine-color-default-border: #33333d;
 }
+
+/* react-big-calendar: inherit theme colors so it reads in light + dark. */
+.synthwave-calendar .rbc-calendar {
+  color: var(--mantine-color-text);
+}
+.synthwave-calendar .rbc-off-range-bg {
+  background: color-mix(in srgb, var(--mantine-color-body) 70%, transparent);
+}
+.synthwave-calendar .rbc-today {
+  background: var(--mantine-color-synthPurple-light);
+}
+.synthwave-calendar .rbc-toolbar button {
+  color: var(--mantine-color-text);
+  border-color: var(--mantine-color-default-border);
+}
+.synthwave-calendar .rbc-toolbar button.rbc-active {
+  background: var(--mantine-color-synthPurple-6);
+  color: #fff;
+  border-color: var(--mantine-color-synthPurple-6);
+}
+.synthwave-calendar .rbc-month-view,
+.synthwave-calendar .rbc-time-view,
+.synthwave-calendar .rbc-header,
+.synthwave-calendar .rbc-day-bg + .rbc-day-bg,
+.synthwave-calendar .rbc-month-row + .rbc-month-row,
+.synthwave-calendar .rbc-time-content,
+.synthwave-calendar .rbc-time-header-content,
+.synthwave-calendar .rbc-timeslot-group {
+  border-color: var(--mantine-color-default-border);
+}
+
+/* Markdown preview spacing in the Notes app. */
+.md-preview :first-child { margin-top: 0; }
+.md-preview h1, .md-preview h2, .md-preview h3 { margin: 0.6em 0 0.3em; }
+.md-preview p { margin: 0.4em 0; }
+.md-preview ul, .md-preview ol { padding-left: 1.4em; margin: 0.4em 0; }
+.md-preview code {
+  background: var(--mantine-color-synthPurple-light);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+.md-preview blockquote {
+  border-left: 3px solid var(--mantine-color-synthPurple-6);
+  margin: 0.5em 0;
+  padding-left: 0.8em;
+  color: var(--mantine-color-dimmed);
+}

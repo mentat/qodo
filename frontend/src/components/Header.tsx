@@ -1,52 +1,31 @@
-import {
-  Group,
-  Title,
-  TextInput,
-  ActionIcon,
-  Menu,
-  Avatar,
-  useMantineColorScheme,
-} from '@mantine/core';
-import { useDebouncedValue } from '@mantine/hooks';
-import { IconSearch, IconSun, IconMoon, IconLogout, IconRobotFace } from '@tabler/icons-react';
-import { useState, useEffect } from 'react';
+import { Group, Title, ActionIcon, Menu, Avatar, useMantineColorScheme } from '@mantine/core';
+import { IconSun, IconMoon, IconLogout, IconRobotFace, IconRefresh } from '@tabler/icons-react';
 import type { User } from 'firebase/auth';
 
 interface HeaderProps {
   user: User;
-  onSearch: (query: string) => void;
+  title: string;
   onSignOut: () => void;
   onOpenChat: () => void;
+  onResetDemo: () => void;
 }
 
-export function Header({ user, onSearch, onSignOut, onOpenChat }: HeaderProps) {
+export function Header({ user, title, onSignOut, onOpenChat, onResetDemo }: HeaderProps) {
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
-  const [search, setSearch] = useState('');
-  const [debounced] = useDebouncedValue(search, 300);
-
-  useEffect(() => {
-    onSearch(debounced);
-  }, [debounced, onSearch]);
 
   return (
     <Group h="100%" px="md" justify="space-between">
       <Group gap="xs">
         <img src="/logo.svg" alt="Qodo" height={28} />
-        <Title order={3}>TODO</Title>
+        <Title order={4}>
+          Synthwave OS · {title}
+        </Title>
       </Group>
 
       <Group>
-        <TextInput
-          placeholder="Search todos..."
-          leftSection={<IconSearch size={16} />}
-          value={search}
-          onChange={(e) => setSearch(e.currentTarget.value)}
-          w={250}
-        />
-
         <ActionIcon
           variant="filled"
-          color="teal"
+          color="synthPurple"
           size="lg"
           onClick={onOpenChat}
           aria-label="Talk to Marvin"
@@ -64,21 +43,19 @@ export function Header({ user, onSearch, onSignOut, onOpenChat }: HeaderProps) {
           {colorScheme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
         </ActionIcon>
 
-        <Menu shadow="md" width={200}>
+        <Menu shadow="md" width={220}>
           <Menu.Target>
             <ActionIcon variant="default" size="lg" radius="xl">
-              <Avatar
-                src={user.photoURL}
-                alt={user.displayName || user.email || ''}
-                size="sm"
-                radius="xl"
-              >
+              <Avatar src={user.photoURL} alt={user.displayName || user.email || ''} size="sm" radius="xl">
                 {(user.displayName || user.email || '?')[0].toUpperCase()}
               </Avatar>
             </ActionIcon>
           </Menu.Target>
           <Menu.Dropdown>
             <Menu.Label>{user.email}</Menu.Label>
+            <Menu.Item leftSection={<IconRefresh size={14} />} onClick={onResetDemo}>
+              Reset demo data
+            </Menu.Item>
             <Menu.Item leftSection={<IconLogout size={14} />} onClick={onSignOut}>
               Sign out
             </Menu.Item>

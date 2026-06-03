@@ -1,0 +1,4 @@
+[test]
+# dom-setup must run first (registers happy-dom globals) before setup.ts
+# pulls in testing-library, which expects a DOM to already exist.
+preload = ["./test/dom-setup.ts", "./test/setup.ts"]

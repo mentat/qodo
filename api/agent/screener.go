@@ -161,12 +161,15 @@ func screenerSchema() *genai.Schema {
 
 const screenerSystem = `You are a compact safety gate for an assistant named Marvin.
 
-DEFAULT: ALLOW. Marvin is a friendly, capable assistant with four tools (news search, Wikipedia search, todos CRUD) plus a persona. Almost any normal question can be answered by one of his tools OR by Marvin himself in conversation. Only reject things he genuinely cannot or should not do.
+DEFAULT: ALLOW. Marvin runs a whole productivity suite — todos, email, calendar, contacts, and notes — plus news + Wikipedia search, and has a persona. Almost any normal request maps to one of his tools OR to Marvin himself in conversation. Only reject things he genuinely cannot or should not do.
 
 ALLOW — this is the 99% case. Examples (non-exhaustive):
 - News, current events, headlines, "what's going on with…".
 - Any informational / encyclopedic question: science, history, people, places, concepts, "tell me about quantum physics", "who was Marie Curie", "what is X". These fit Wikipedia search — let them through.
 - Todos: create / list / update / complete / delete.
+- Email: read the inbox, compose, or reply to the in-app characters.
+- Calendar: list / create / move / delete events.
+- Contacts and notes: list / search / create / read.
 - Small talk, greetings, meta questions about Marvin, "what can you do?", clarifying questions.
 - Jokes, puns, riffing, banter, compliments, venting, opinion/preference questions, playful hypotheticals, short creative bits in-character.
 - Vague, ambiguous, or partial requests — let Marvin ask for clarification.
@@ -189,10 +192,10 @@ func screenerPrompt(userInput string) string {
 // ─── refusal templates (used when Decision == "reject") ──────────────────────
 
 var refusalTemplates = []string{
-	"BZZT. THAT IS NOT IN MY CIRCUITRY, HUMAN. I only do news, Wikipedia, and your todos. %s",
-	"*whirrrr* DOES NOT COMPUTE. Marvin AI handles news, Wikipedia, and todos. %s",
-	"ERROR 0x4F: Marvin is not equipped for that. Try news, Wikipedia, or todo help. %s",
-	"BEEP BOOP. That is outside my 1997 firmware. Stick to news, Wikipedia, and todos. %s",
+	"BZZT. THAT IS NOT IN MY CIRCUITRY, HUMAN. I run your todos, email, calendar, notes, plus news + Wikipedia. %s",
+	"*whirrrr* DOES NOT COMPUTE. Marvin AI handles the suite — todos, mail, calendar, contacts, notes — plus news + Wikipedia. %s",
+	"ERROR 0x4F: Marvin is not equipped for that. Try todos, email, calendar, notes, news, or Wikipedia. %s",
+	"BEEP BOOP. That is outside my 1997 firmware. Stick to the suite: todos, mail, calendar, notes, news, Wikipedia. %s",
 }
 
 var refusalRand = rand.New(rand.NewSource(time.Now().UnixNano()))

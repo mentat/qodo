@@ -45,7 +45,7 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 func statusFor(err error) (int, string) {
 	switch {
 	case errors.Is(err, services.ErrNotFound):
-		return http.StatusNotFound, "todo not found"
+		return http.StatusNotFound, "not found"
 	case errors.Is(err, services.ErrInvalidInput):
 		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, services.ErrUnauthenticated):

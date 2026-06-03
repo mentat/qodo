@@ -14,7 +14,7 @@ import {
 import { IconSend, IconTrash } from '@tabler/icons-react';
 import { useChatStore } from '../store/chatStore';
 import type { ChatMessage } from '../api/agent';
-import { RobotAscii } from './RobotAscii';
+import { SpectrumAnalyzer } from './SpectrumAnalyzer';
 
 interface Props {
   opened: boolean;
@@ -65,7 +65,7 @@ export function ChatPanel({ opened, onClose }: Props) {
       overlayProps={{ backgroundOpacity: 0.2, blur: 2 }}
       styles={{ body: { display: 'flex', flexDirection: 'column', height: 'calc(100vh - 60px)', padding: 12, gap: 10 } }}
     >
-      <RobotAscii thinking={sending} />
+      <SpectrumAnalyzer thinking={sending} />
       <Group justify="space-between" gap={4}>
         <Text size="xs" c="dimmed">
           {sending ? '*whirrrr* processing…' : loading ? 'booting…' : 'online (barely)'}

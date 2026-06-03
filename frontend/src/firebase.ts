@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyAJi2ig_BvcjV8BOC_vrK0abIZ2usjHH4o',
@@ -13,3 +14,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+// Firestore client — used for live (onSnapshot) reads of emails + events.
+// Writes still go through the Go API (Admin SDK); these client reads are
+// owner-scoped by firestore.rules.
+export const db = getFirestore(app);

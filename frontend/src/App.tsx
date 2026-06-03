@@ -1,108 +1,68 @@
-import { useState, useEffect, useMemo } from 'react';
-import { AppShell, Button, Modal, Group, Container, Center, Loader } from '@mantine/core';
+import { useEffect, type ReactNode } from 'react';
+import { AppShell, Center, Loader } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconPlus } from '@tabler/icons-react';
 import { useAuth } from './hooks/useAuth';
 import { LoginPage } from './components/LoginPage';
 import { Header } from './components/Header';
-import { TodoFilters } from './components/TodoFilters';
-import { TodoList } from './components/TodoList';
-import { TodoForm, type FormValues } from './components/TodoForm';
+import { NavRail } from './components/NavRail';
 import { ChatPanel } from './components/ChatPanel';
-import { useTodoStore, filterTodos, deriveCategories } from './store/todoStore';
-import type { Todo } from './types/todo';
+import { TodosApp } from './components/Todos/TodosApp';
+import { MailApp } from './components/Mail/MailApp';
+import { CalendarApp } from './components/Calendar/CalendarApp';
+import { ContactsApp } from './components/Contacts/ContactsApp';
+import { NotesApp } from './components/Notes/NotesApp';
+import { RadioApp } from './components/Radio/RadioApp';
+import { WeatherApp } from './components/Weather/WeatherApp';
+import { useUIStore, type AppId } from './store/uiStore';
+import { useTodoStore } from './store/todoStore';
+import { useMailStore } from './store/mailStore';
+import { useEventStore } from './store/eventStore';
+import { seedDemo, resetDemo } from './api/demo';
+
+const APP_TITLES: Record<AppId, string> = {
+  todos: 'Todos',
+  mail: 'Mail',
+  calendar: 'Calendar',
+  contacts: 'Contacts',
+  notes: 'Notes',
+  radio: 'Radio',
+  weather: 'Weather',
+};
 
 export default function App() {
   const { user, loading: authLoading, signOut } = useAuth();
-  const [formOpen, setFormOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  const todos = useTodoStore((s) => s.todos);
-  const searchHits = useTodoStore((s) => s.searchHits);
-  const loading = useTodoStore((s) => s.loading);
-  const priorityFilter = useTodoStore((s) => s.priorityFilter);
-  const categoryFilter = useTodoStore((s) => s.categoryFilter);
-  const statusFilter = useTodoStore((s) => s.statusFilter);
+  const activeApp = useUIStore((s) => s.activeApp);
+  const chatOpen = useUIStore((s) => s.chatOpen);
+  const openChat = useUIStore((s) => s.openChat);
+  const closeChat = useUIStore((s) => s.closeChat);
   const fetchTodos = useTodoStore((s) => s.fetchTodos);
-  const addTodo = useTodoStore((s) => s.addTodo);
-  const updateTodo = useTodoStore((s) => s.updateTodo);
-  const toggleTodo = useTodoStore((s) => s.toggleTodo);
-  const removeTodo = useTodoStore((s) => s.removeTodo);
-  const reorderTodos = useTodoStore((s) => s.reorderTodos);
-  const setSearchQuery = useTodoStore((s) => s.setSearchQuery);
-  const setPriorityFilter = useTodoStore((s) => s.setPriorityFilter);
-  const setCategoryFilter = useTodoStore((s) => s.setCategoryFilter);
-  const setStatusFilter = useTodoStore((s) => s.setStatusFilter);
+  const subscribeMail = useMailStore((s) => s.subscribe);
+  const unsubscribeMail = useMailStore((s) => s.unsubscribe);
+  const subscribeEvents = useEventStore((s) => s.subscribe);
+  const unsubscribeEvents = useEventStore((s) => s.unsubscribe);
 
-  // When a search is active, searchHits is the authoritative set — already
-  // stemmed-matched + completed/priority-filtered by the backend. We still
-  // apply category client-side since it's not part of the search index.
-  const filteredTodos = useMemo(() => {
-    if (searchHits !== null) {
-      if (!categoryFilter) return searchHits;
-      return searchHits.filter((t) => t.category === categoryFilter);
-    }
-    return filterTodos(todos, '', priorityFilter, categoryFilter, statusFilter);
-  }, [todos, searchHits, priorityFilter, categoryFilter, statusFilter]);
-
-  const categories = useMemo(() => deriveCategories(todos), [todos]);
-
+  // On login: seed demo content (idempotent), load todos, and open the live
+  // Firestore listeners for mail + calendar. Tear the listeners down on logout.
   useEffect(() => {
-    if (user) fetchTodos();
-  }, [user, fetchTodos]);
+    if (!user) return;
+    const uid = user.uid;
+    void fetchTodos();
+    seedDemo().catch((e) => console.error('seed failed', e));
+    subscribeMail(uid);
+    subscribeEvents(uid);
+    return () => {
+      unsubscribeMail();
+      unsubscribeEvents();
+    };
+  }, [user, fetchTodos, subscribeMail, unsubscribeMail, subscribeEvents, unsubscribeEvents]);
 
-  const handleSubmit = async (values: FormValues) => {
-    setSubmitting(true);
+  const handleReset = async () => {
     try {
-      const payload = {
-        ...values,
-        dueDate: values.dueDate ? values.dueDate.toISOString() : null,
-      };
-      if (editingTodo) {
-        await updateTodo(editingTodo.id, payload);
-        notifications.show({ title: 'Updated', message: 'Todo updated', color: 'green' });
-      } else {
-        await addTodo(payload);
-        notifications.show({ title: 'Created', message: 'Todo created', color: 'green' });
-      }
-      setFormOpen(false);
-      setEditingTodo(null);
-    } catch (e: any) {
-      notifications.show({ title: 'Error', message: e.message, color: 'red' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleToggle = async (id: string, completed: boolean) => {
-    try {
-      await toggleTodo(id, completed);
-    } catch (e: any) {
-      notifications.show({ title: 'Error', message: e.message, color: 'red' });
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      await removeTodo(id);
-      notifications.show({ title: 'Deleted', message: 'Todo deleted', color: 'orange' });
-    } catch (e: any) {
-      notifications.show({ title: 'Error', message: e.message, color: 'red' });
-    }
-  };
-
-  const handleEdit = (todo: Todo) => {
-    setEditingTodo(todo);
-    setFormOpen(true);
-  };
-
-  const handleReorder = async (startIndex: number, endIndex: number) => {
-    try {
-      await reorderTodos(startIndex, endIndex);
-    } catch (e: any) {
-      notifications.show({ title: 'Error', message: e.message, color: 'red' });
+      await resetDemo();
+      await fetchTodos();
+      notifications.show({ title: 'Reset', message: 'Demo data restored. BZZT.', color: 'synthPurple' });
+    } catch (e) {
+      notifications.show({ title: 'Error', message: (e as Error).message, color: 'red' });
     }
   };
 
@@ -115,62 +75,35 @@ export default function App() {
   }
   if (!user) return <LoginPage />;
 
+  const screen: Record<AppId, ReactNode> = {
+    todos: <TodosApp />,
+    mail: <MailApp />,
+    calendar: <CalendarApp />,
+    contacts: <ContactsApp />,
+    notes: <NotesApp />,
+    radio: <RadioApp />,
+    weather: <WeatherApp />,
+  };
+
   return (
-    <AppShell header={{ height: 60 }} padding="md">
+    <AppShell header={{ height: 60 }} navbar={{ width: 84, breakpoint: 0 }} padding="md">
       <AppShell.Header>
         <Header
           user={user}
-          onSearch={setSearchQuery}
+          title={APP_TITLES[activeApp]}
           onSignOut={signOut}
-          onOpenChat={() => setChatOpen(true)}
+          onOpenChat={openChat}
+          onResetDemo={handleReset}
         />
       </AppShell.Header>
 
+      <AppShell.Navbar>
+        <NavRail />
+      </AppShell.Navbar>
+
       <AppShell.Main>
-        <Container size="md">
-          <Group justify="space-between" mb="md">
-            <TodoFilters
-              priority={priorityFilter}
-              category={categoryFilter}
-              status={statusFilter}
-              categories={categories}
-              onPriorityChange={setPriorityFilter}
-              onCategoryChange={setCategoryFilter}
-              onStatusChange={setStatusFilter}
-            />
-            <Button
-              leftSection={<IconPlus size={16} />}
-              onClick={() => {
-                setEditingTodo(null);
-                setFormOpen(true);
-              }}
-            >
-              Add Todo
-            </Button>
-          </Group>
-
-          <TodoList
-            todos={filteredTodos}
-            loading={loading}
-            onToggle={handleToggle}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onReorder={handleReorder}
-          />
-        </Container>
-
-        <ChatPanel opened={chatOpen} onClose={() => setChatOpen(false)} />
-
-        <Modal
-          opened={formOpen}
-          onClose={() => {
-            setFormOpen(false);
-            setEditingTodo(null);
-          }}
-          title={editingTodo ? 'Edit Todo' : 'New Todo'}
-        >
-          <TodoForm todo={editingTodo} onSubmit={handleSubmit} loading={submitting} />
-        </Modal>
+        {screen[activeApp]}
+        <ChatPanel opened={chatOpen} onClose={closeChat} />
       </AppShell.Main>
     </AppShell>
   );

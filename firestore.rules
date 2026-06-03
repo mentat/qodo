@@ -5,5 +5,16 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null;
     }
+
+    // Mail + calendar are read live by the client via onSnapshot. All writes
+    // go through the Go API (Firebase Admin SDK), which bypasses these rules,
+    // so clients get read-only owner-scoped access. Queries MUST filter
+    // `where userId == request.auth.uid` to satisfy the rule.
+    match /emails/{emailId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    match /events/{eventId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
   }
 }

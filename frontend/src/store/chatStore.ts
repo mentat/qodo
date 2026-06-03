@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { sendMessage, fetchHistory, clearHistory, type ChatMessage, type ToolCall } from '../api/agent';
 import { useTodoStore } from './todoStore';
+import { useContactStore } from './contactStore';
+import { useNoteStore } from './noteStore';
 
 interface ChatState {
   messages: ChatMessage[];
@@ -16,6 +18,10 @@ interface ChatState {
 }
 
 const TODO_MUTATING_TOOLS = new Set(['create_todo', 'update_todo', 'delete_todo']);
+const CONTACT_TOOLS = new Set(['create_contact']);
+const NOTE_TOOLS = new Set(['create_note']);
+// Mail + calendar mutations surface automatically via the Firestore listeners,
+// so they need no explicit refresh here.
 
 export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
@@ -67,9 +73,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
         };
       });
 
-      // Refresh todos if Marvin mutated them.
-      if ((res.toolCalls ?? []).some((c) => TODO_MUTATING_TOOLS.has(c.name))) {
-        useTodoStore.getState().fetchTodos();
+      // Refresh non-realtime stores Marvin may have mutated. (Mail + calendar
+      // update live via Firestore listeners, so they're omitted.)
+      const calls = res.toolCalls ?? [];
+      if (calls.some((c) => TODO_MUTATING_TOOLS.has(c.name))) {
+        void useTodoStore.getState().fetchTodos();
+      }
+      if (calls.some((c) => CONTACT_TOOLS.has(c.name))) {
+        void useContactStore.getState().fetch();
+      }
+      if (calls.some((c) => NOTE_TOOLS.has(c.name))) {
+        void useNoteStore.getState().fetch();
       }
     } catch (e: any) {
       set((s) => ({

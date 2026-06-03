@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/agent/llmagent"
@@ -62,10 +63,21 @@ type Config struct {
 
 	// TodoService provides todo CRUD (required).
 	TodoService *services.TodoService
+	// EmailService, EventService, ContactService, NoteService give Marvin
+	// control over the rest of the suite. Optional — the corresponding tools
+	// are registered only when the service is non-nil.
+	EmailService   *services.EmailService
+	EventService   *services.EventService
+	ContactService *services.ContactService
+	NoteService    *services.NoteService
 	// NewsAPI is an optional pre-built client; if nil, one is built from NewsAPIKey.
 	NewsAPI *newsapi.Client
 	// Wikipedia is an optional pre-built client; if nil, a default is built.
 	Wikipedia *wikipedia.Client
+
+	// Now supplies the current time used to anchor Marvin's "today". Defaults
+	// to time.Now. Injectable so tests can pin a deterministic date.
+	Now func() time.Time
 }
 
 // Agent is a constructed Marvin instance plus its ADK runner.
@@ -155,17 +167,73 @@ func New(ctx context.Context, cfg Config) (*Agent, error) {
 	}
 	tools = append(tools, listT, createT, updateT, deleteT)
 
+	// Suite tools — registered only for the services that are wired in.
+	if cfg.EmailService != nil {
+		for _, mk := range []func(*services.EmailService) (tool.Tool, error){
+			NewListEmailsTool, NewReadEmailTool, NewComposeEmailTool, NewReplyEmailTool,
+		} {
+			t, err := mk(cfg.EmailService)
+			if err != nil {
+				return nil, err
+			}
+			tools = append(tools, t)
+		}
+	}
+	if cfg.EventService != nil {
+		for _, mk := range []func(*services.EventService) (tool.Tool, error){
+			NewListEventsTool, NewCreateEventTool, NewMoveEventTool, NewDeleteEventTool,
+		} {
+			t, err := mk(cfg.EventService)
+			if err != nil {
+				return nil, err
+			}
+			tools = append(tools, t)
+		}
+	}
+	if cfg.ContactService != nil {
+		for _, mk := range []func(*services.ContactService) (tool.Tool, error){
+			NewListContactsTool, NewGetContactTool, NewCreateContactTool,
+		} {
+			t, err := mk(cfg.ContactService)
+			if err != nil {
+				return nil, err
+			}
+			tools = append(tools, t)
+		}
+	}
+	if cfg.NoteService != nil {
+		for _, mk := range []func(*services.NoteService) (tool.Tool, error){
+			NewListNotesTool, NewReadNoteTool, NewCreateNoteTool,
+		} {
+			t, err := mk(cfg.NoteService)
+			if err != nil {
+				return nil, err
+			}
+			tools = append(tools, t)
+		}
+	}
+
 	instruction := MarvinInstruction
 	if newsClient == nil {
 		instruction += "\n\nNOTE: news search is currently UNAVAILABLE. Tell the user so if they ask."
 	}
 
+	now := cfg.Now
+	if now == nil {
+		now = time.Now
+	}
+
 	llm, err := llmagent.New(llmagent.Config{
 		Name:        "marvin",
 		Model:       model,
-		Description: "A slightly malfunctioning 90s productivity robot that manages the user's todos and can fetch news + Wikipedia.",
-		Instruction: instruction,
-		Tools:       tools,
+		Description: "A slightly malfunctioning 90s productivity robot that runs the user's whole suite — todos, email, calendar, contacts, and notes — and can fetch news + Wikipedia.",
+		// Use a provider (not the static Instruction) so the "today is …"
+		// anchor is recomputed each turn; a long-running server must not
+		// freeze "today" at the day it booted.
+		InstructionProvider: func(agent.ReadonlyContext) (string, error) {
+			return instructionWithDate(instruction, now()), nil
+		},
+		Tools: tools,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("agent: llmagent: %w", err)
