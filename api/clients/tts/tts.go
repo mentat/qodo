@@ -130,10 +130,13 @@ var robotProsody = []struct {
 		re:   regexp.MustCompile(`(?i)\bwhirr+\b`),
 		ssml: `<prosody pitch="-2st" rate="x-slow">whirrrr</prosody><break time="120ms"/>`,
 	},
-	// "BZZT" — drop pitch hard, slow it down, then a tiny gap.
+	// "BZZT" — the literal token has no vowels so Neural2 mumbles or swallows
+	// it. <sub alias="buzz't"> gives the synthesizer a pronounceable surface
+	// form ("buzz" + clipped t) and the heavy low/slow/loud prosody plus a
+	// short gap after make it land like a real shorted-out robot buzzer.
 	{
 		re:   regexp.MustCompile(`(?i)\bbzz+t\b`),
-		ssml: `<prosody pitch="-5st" rate="slow">bzzt</prosody><break time="100ms"/>`,
+		ssml: `<prosody pitch="-7st" rate="slow" volume="loud"><sub alias="buzz't">bzzt</sub></prosody><break time="140ms"/>`,
 	},
 	// "beep" — pitch up, faster. Crisp.
 	{

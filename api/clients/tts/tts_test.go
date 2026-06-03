@@ -40,7 +40,8 @@ func TestToSSML_RobotTicsAreProsodyWrapped(t *testing.T) {
 	cases := []struct{ in, mustContain string }{
 		{"BEEP boop", `pitch="+8st"`},
 		{"BEEP boop", `pitch="-6st"`},
-		{"BZZT something", `pitch="-5st"`},
+		{"BZZT something", `pitch="-7st"`},
+		{"BZZT something", `<sub alias="buzz't">bzzt</sub>`},
 		{"whirrrr...", `rate="x-slow"`},
 		{"AFFIRMATIVE, human", `prosody`},
 		{"does not compute", `prosody`},
