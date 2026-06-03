@@ -33,7 +33,7 @@ export function NoteEditor({ note, onSave, onDelete }: Props) {
   };
 
   return (
-    <Stack gap="xs" style={{ height: '100%' }}>
+    <Stack gap="xs" style={{ flex: 1, minHeight: 0 }}>
       <Group justify="space-between">
         <TextInput
           flex={1}

@@ -12,7 +12,13 @@ let srcNode: MediaElementAudioSourceNode | null = null;
 function getEl(): HTMLAudioElement {
   if (!audioEl) {
     audioEl = new Audio();
-    audioEl.crossOrigin = 'anonymous'; // required for AnalyserNode on cross-origin audio
+    // NOTE: we deliberately do NOT set crossOrigin='anonymous'. The default
+    // synthwave tracks (and most free hosts) don't send CORS headers, and
+    // crossOrigin would block playback entirely. The trade-off: the
+    // AnalyserNode reads a "tainted" (silent) stream, so the visualizer falls
+    // back to a synthetic animation while playing. To get TRUE audio-reactive
+    // bars, point RADIO_TRACKS at CORS-enabled (Access-Control-Allow-Origin)
+    // audio and re-enable crossOrigin here.
     audioEl.preload = 'none';
   }
   return audioEl;

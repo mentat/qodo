@@ -36,10 +36,23 @@
 }
 .synthwave-calendar .rbc-toolbar button {
   color: var(--mantine-color-text);
+  background-color: transparent;
   border-color: var(--mantine-color-default-border);
 }
-.synthwave-calendar .rbc-toolbar button.rbc-active {
-  background: var(--mantine-color-synthPurple-6);
+/* rbc's defaults paint a light (#e6e6e6) background on hover/focus/active,
+ * which leaves light text unreadable in dark mode. Repaint these states with
+ * theme colors so contrast holds in both schemes. */
+.synthwave-calendar .rbc-toolbar button:hover,
+.synthwave-calendar .rbc-toolbar button:focus,
+.synthwave-calendar .rbc-toolbar button:active {
+  background-color: var(--mantine-color-synthPurple-light);
+  color: var(--mantine-color-text);
+  border-color: var(--mantine-color-synthPurple-6);
+}
+.synthwave-calendar .rbc-toolbar button.rbc-active,
+.synthwave-calendar .rbc-toolbar button.rbc-active:hover,
+.synthwave-calendar .rbc-toolbar button.rbc-active:focus {
+  background-color: var(--mantine-color-synthPurple-6);
   color: #fff;
   border-color: var(--mantine-color-synthPurple-6);
 }

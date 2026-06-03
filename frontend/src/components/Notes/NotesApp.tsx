@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Grid, Stack, Button, ScrollArea, UnstyledButton, Text, Paper, Group } from '@mantine/core';
-import { IconPlus } from '@tabler/icons-react';
+import { Box, Stack, Button, ScrollArea, UnstyledButton, Text, Paper, Center } from '@mantine/core';
+import { IconPlus, IconNotes } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import dayjs from 'dayjs';
 import { useNoteStore } from '../../store/noteStore';
@@ -51,62 +51,61 @@ export function NotesApp() {
   const showEditor = creating || selected;
 
   return (
-    <Grid gutter="md" style={{ height: 'calc(100vh - 92px)' }}>
-      <Grid.Col span={{ base: 12, sm: 4 }} style={{ height: '100%' }}>
-        <Stack gap="xs" style={{ height: '100%' }}>
-          <Button
-            leftSection={<IconPlus size={16} />}
-            variant="light"
-            onClick={() => {
-              setCreating(true);
-              setSelectedId(null);
-            }}
-          >
-            New note
-          </Button>
-          <ScrollArea style={{ flex: 1 }} type="auto">
-            <Stack gap={4}>
-              {notes.map((n) => (
-                <UnstyledButton
-                  key={n.id}
-                  onClick={() => {
-                    setCreating(false);
-                    setSelectedId(n.id);
-                  }}
-                  style={{
-                    padding: 8,
-                    borderRadius: 8,
-                    background: !creating && n.id === selectedId ? 'var(--mantine-color-synthPurple-light)' : 'transparent',
-                  }}
-                >
-                  <Text size="sm" fw={600} truncate>
-                    {n.title || 'Untitled'}
-                  </Text>
-                  <Text size="11px" c="dimmed">
-                    {dayjs(n.updatedAt).format('MMM D, h:mm A')}
-                  </Text>
-                </UnstyledButton>
-              ))}
-            </Stack>
-          </ScrollArea>
-        </Stack>
-      </Grid.Col>
+    <Box style={{ display: 'flex', gap: 'var(--mantine-spacing-md)', height: 'calc(100vh - 92px)' }}>
+      <Box style={{ flex: '0 0 280px', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <Button
+          leftSection={<IconPlus size={16} />}
+          variant="light"
+          onClick={() => {
+            setCreating(true);
+            setSelectedId(null);
+          }}
+        >
+          New note
+        </Button>
+        <ScrollArea style={{ flex: 1 }} type="auto" mt="xs">
+          <Stack gap={4}>
+            {notes.map((n) => (
+              <UnstyledButton
+                key={n.id}
+                onClick={() => {
+                  setCreating(false);
+                  setSelectedId(n.id);
+                }}
+                style={{
+                  padding: 8,
+                  borderRadius: 8,
+                  background: !creating && n.id === selectedId ? 'var(--mantine-color-synthPurple-light)' : 'transparent',
+                }}
+              >
+                <Text size="sm" fw={600} truncate>
+                  {n.title || 'Untitled'}
+                </Text>
+                <Text size="11px" c="dimmed">
+                  {dayjs(n.updatedAt).format('MMM D, h:mm A')}
+                </Text>
+              </UnstyledButton>
+            ))}
+          </Stack>
+        </ScrollArea>
+      </Box>
 
-      <Grid.Col span={{ base: 12, sm: 8 }} style={{ height: '100%' }}>
-        <Paper withBorder radius="md" p="md" style={{ height: '100%' }}>
+      <Box style={{ flex: 1, minWidth: 0 }}>
+        <Paper withBorder radius="md" p="md" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
           {showEditor ? (
-            <NoteEditor
-              note={selected}
-              onSave={handleSave}
-              onDelete={selected ? handleDelete : undefined}
-            />
+            <NoteEditor note={selected} onSave={handleSave} onDelete={selected ? handleDelete : undefined} />
           ) : (
-            <Group justify="center" align="center" style={{ height: '100%' }}>
-              <Text c="dimmed">Select a note or create a new one.</Text>
-            </Group>
+            <Center style={{ flex: 1 }}>
+              <Stack align="center" gap={6}>
+                <IconNotes size={40} opacity={0.4} />
+                <Text c="dimmed" size="sm">
+                  Select a note or create a new one.
+                </Text>
+              </Stack>
+            </Center>
           )}
         </Paper>
-      </Grid.Col>
-    </Grid>
+      </Box>
+    </Box>
   );
 }

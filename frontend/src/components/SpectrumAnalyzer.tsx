@@ -44,16 +44,26 @@ export function SpectrumAnalyzer({ thinking }: { thinking: boolean }) {
 
       const analyser = getAnalyser();
       const values: number[] = [];
+      let real = false;
       if (analyser && playingRef.current) {
         analyser.getByteFrequencyData(freq);
-        const step = Math.floor(freq.length / BARS) || 1;
-        for (let i = 0; i < BARS; i++) values.push(freq[i * step] / 255);
-      } else {
-        const amp = thinkingRef.current ? 0.85 : 0.3;
-        const speed = thinkingRef.current ? 1.7 : 0.6;
+        let sum = 0;
+        for (let i = 0; i < freq.length; i++) sum += freq[i];
+        // sum === 0 means a tainted (cross-origin, no-CORS) stream — fall back
+        // to the synthetic animation so the bars still dance while playing.
+        if (sum > 0) {
+          real = true;
+          const step = Math.floor(freq.length / BARS) || 1;
+          for (let i = 0; i < BARS; i++) values.push(freq[i * step] / 255);
+        }
+      }
+      if (!real) {
+        const energetic = playingRef.current || thinkingRef.current;
+        const amp = energetic ? 0.8 : 0.3;
+        const speed = energetic ? 1.6 : 0.6;
         for (let i = 0; i < BARS; i++) {
           const base = Math.sin(t * speed + i * 0.5) * 0.5 + 0.5;
-          const jitter = thinkingRef.current ? Math.abs(Math.sin(t * 5 + i * 1.3)) * 0.4 : 0;
+          const jitter = energetic ? Math.abs(Math.sin(t * 5 + i * 1.3)) * 0.4 : 0;
           values.push(Math.min(1, base * amp + jitter));
         }
       }

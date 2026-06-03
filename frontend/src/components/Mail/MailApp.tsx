@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Grid, Group, Button, Paper, Text, Stack } from '@mantine/core';
+import { Box, Group, Button, Paper, Text, Stack } from '@mantine/core';
 import { IconPencilPlus, IconMail } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useMailStore, deriveThreads } from '../../store/mailStore';
@@ -36,19 +36,19 @@ export function MailApp() {
   };
 
   return (
-    <Grid gutter="md" style={{ height: 'calc(100vh - 92px)' }}>
-      <Grid.Col span={{ base: 12, sm: 4 }} style={{ height: '100%' }}>
-        <Stack gap="xs" style={{ height: '100%' }}>
-          <Button
-            leftSection={<IconPencilPlus size={16} />}
-            onClick={() => {
-              setComposing(true);
-              selectThread(null);
-            }}
-            variant="light"
-          >
-            Compose
-          </Button>
+    <Box style={{ display: 'flex', gap: 'var(--mantine-spacing-md)', height: 'calc(100vh - 92px)' }}>
+      <Box style={{ flex: '0 0 320px', minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <Button
+          leftSection={<IconPencilPlus size={16} />}
+          onClick={() => {
+            setComposing(true);
+            selectThread(null);
+          }}
+          variant="light"
+        >
+          Compose
+        </Button>
+        <Box mt="xs" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <ThreadList
             threads={threads}
             activeThreadId={activeThreadId}
@@ -57,10 +57,10 @@ export function MailApp() {
               selectThread(id);
             }}
           />
-        </Stack>
-      </Grid.Col>
+        </Box>
+      </Box>
 
-      <Grid.Col span={{ base: 12, sm: 8 }} style={{ height: '100%' }}>
+      <Box style={{ flex: 1, minWidth: 0, height: '100%' }}>
         <Paper withBorder radius="md" p="md" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
           {composing ? (
             <Composer mode="new" sending={sending} onSend={doSend} onCancel={() => setComposing(false)} />
@@ -80,7 +80,7 @@ export function MailApp() {
             </Group>
           )}
         </Paper>
-      </Grid.Col>
-    </Grid>
+      </Box>
+    </Box>
   );
 }
