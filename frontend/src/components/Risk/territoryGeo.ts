@@ -4,7 +4,7 @@
 // MultiPolygon feature. Most map cleanly to one or more real-world countries
 // (looked up via the ADM0_A3 3-letter ISO code in Natural Earth's
 // /public/world-110m.geojson). The cases where Risk carves a real country
-// into sub-regions (Russia, USA, Canada) are handled by hand-authored
+// into sub-regions (Russia, USA, Canada, Australia) are handled by hand-authored
 // polygons under SUB_NATIONAL_POLYGONS — accurate enough to read as the
 // real region without shipping the multi-megabyte admin-1 (states +
 // provinces) Natural Earth file.
@@ -19,7 +19,7 @@ import { TERRITORIES, type TerritoryID, type ContinentID } from './board';
 //
 // Maps each Risk territory to the list of ADM0_A3 (3-letter ISO) country
 // codes whose Natural Earth geometries should be unioned to form the
-// territory's shape. Set to an empty array for the 12 territories handled
+// territory's shape. Set to an empty array for territories handled
 // instead via SUB_NATIONAL_POLYGONS below.
 export const RISK_COUNTRY_MAP: Record<TerritoryID, string[]> = {
   // North America — 7 of 9 are sub-national; only Greenland + Central Am map to countries.
@@ -75,8 +75,8 @@ export const RISK_COUNTRY_MAP: Record<TerritoryID, string[]> = {
   siam: ['THA', 'LAO', 'KHM', 'VNM', 'MMR', 'MYS', 'BRN', 'PHL'],
 
   // Australia — Indonesia + AU split.
-  indonesia: ['IDN', 'TLS', 'PNG'],  // PNG joins Indonesia in some Risk editions, but here it's in NewGuinea
-  'new-guinea': [],                  // sub-national: eastern half of PNG (we draw it explicitly)
+  indonesia: ['IDN', 'TLS'],         // Indonesia includes western New Guinea through IDN.
+  'new-guinea': ['PNG'],             // Natural Earth gives the eastern half + PNG islands cleanly.
   'western-australia': [],           // sub-national (AUS west of ~140°E)
   'eastern-australia': [],           // sub-national (AUS east of ~140°E + NZL + Pacific)
 };
@@ -91,81 +91,106 @@ export const RISK_COUNTRY_MAP: Record<TerritoryID, string[]> = {
 type PolyRing = [number, number][];
 
 const ALASKA: PolyRing = [
-  [-168, 60], [-162, 54.5], [-156, 56], [-152, 60], [-148, 60.5],
-  [-141, 60], [-141, 69.6], [-156, 71.4], [-165, 68.5], [-168, 65.5], [-168, 60],
+  // Bering coast → Gulf of Alaska → Canada border → Arctic slope.
+  [-170.5, 63.2], [-168.1, 61.5], [-165.6, 60.1], [-162.2, 59.7],
+  [-159.6, 58.9], [-156.2, 56.8], [-153.2, 57.1], [-151.7, 59.4],
+  [-149.2, 60.1], [-146.0, 60.4], [-141.0, 60.0], [-141.0, 69.7],
+  [-145.0, 70.1], [-150.5, 70.4], [-155.1, 71.2], [-160.1, 70.5],
+  [-164.2, 68.9], [-167.3, 66.1], [-170.5, 63.2],
 ];
 
 const NORTHWEST_TERRITORY: PolyRing = [
-  [-141, 60], [-141, 70.5], [-128, 70], [-115, 73], [-100, 73.5],
-  [-85, 70.5], [-77, 67], [-75, 62], [-85, 60], [-102, 60], [-120, 60], [-141, 60],
+  // Yukon/NWT/Nunavut mass. South edge is shared with Alberta/Ontario.
+  [-141.0, 60.0], [-141.0, 69.7], [-132.0, 69.4], [-124.0, 70.4],
+  [-116.0, 72.2], [-105.0, 73.7], [-94.0, 72.2], [-86.0, 69.2],
+  [-80.0, 65.5], [-79.0, 59.0], [-83.0, 57.0], [-88.0, 58.0],
+  [-95.0, 60.0], [-112.0, 60.0], [-128.0, 60.0], [-141.0, 60.0],
 ];
 
 const ALBERTA: PolyRing = [
-  // BC + AB + SK + MB
-  [-141, 60], [-141, 56.5], [-132, 54.5], [-130, 51], [-123, 49],
-  [-114, 49], [-95, 49], [-95, 60], [-141, 60],
+  // Western Canada: BC coast plus prairie provinces to the Ontario split.
+  [-141.0, 60.0], [-136.0, 59.2], [-132.0, 56.0], [-130.0, 53.0],
+  [-128.2, 51.2], [-124.9, 49.5], [-122.8, 49.0], [-110.0, 49.0],
+  [-95.0, 49.0], [-95.0, 60.0], [-112.0, 60.0], [-128.0, 60.0],
+  [-141.0, 60.0],
 ];
 
 const ONTARIO: PolyRing = [
-  // ON province incl. Hudson Bay south shore
-  [-95, 60], [-95, 49], [-89, 48], [-84.5, 46.5], [-82, 43],
-  [-79, 43], [-79, 51], [-83, 55], [-87, 56], [-95, 60],
+  // Hudson Bay shore → Manitoba/Ontario border → Great Lakes → Quebec line.
+  [-95.0, 60.0], [-95.0, 49.0], [-91.0, 48.2], [-88.5, 47.6],
+  [-84.8, 46.6], [-82.4, 44.2], [-79.2, 43.2], [-77.8, 44.6],
+  [-79.0, 50.8], [-79.0, 56.0], [-83.0, 57.0], [-88.0, 58.0],
+  [-95.0, 60.0],
 ];
 
 const QUEBEC: PolyRing = [
-  // QC + Labrador
-  [-79, 51], [-79, 45.5], [-74, 45], [-69, 47.5], [-67, 49],
-  [-64, 50], [-57, 53.5], [-55.5, 52], [-58, 50], [-65, 50],
-  [-69, 52], [-72, 55], [-77, 56], [-79, 56], [-79, 51],
+  // Quebec + Labrador, with the St. Lawrence/Labrador coast pulled east.
+  [-79.0, 56.0], [-79.0, 50.8], [-77.8, 44.6], [-74.7, 45.0],
+  [-71.7, 46.2], [-69.5, 47.6], [-67.2, 49.0], [-64.0, 49.8],
+  [-60.0, 50.2], [-56.0, 52.2], [-55.5, 54.0], [-58.5, 55.4],
+  [-62.5, 56.7], [-67.5, 58.4], [-73.0, 59.0], [-77.0, 58.0],
+  [-79.0, 56.0],
 ];
 
 const WESTERN_US: PolyRing = [
-  // Pacific coast → Mexico border → ~100°W meridian → Canadian border
-  [-124.5, 48.5], [-124, 42], [-122, 36], [-120, 34],
-  [-117, 32.5], [-110, 31.3], [-106, 31.8], [-103, 28.7],
-  [-100, 28.5], [-100, 49], [-117, 49], [-124.5, 48.5],
+  // Pacific coast → US/Mexico border → 100W split → Canadian border.
+  [-124.8, 48.6], [-124.4, 46.2], [-124.0, 43.2], [-123.0, 40.5],
+  [-122.0, 38.0], [-121.0, 36.0], [-119.5, 34.5], [-117.1, 32.5],
+  [-114.8, 32.7], [-111.0, 31.3], [-106.5, 31.8], [-104.5, 29.6],
+  [-100.0, 28.8], [-100.0, 49.0], [-117.0, 49.0], [-124.8, 48.6],
 ];
 
 const EASTERN_US: PolyRing = [
-  // 100°W meridian → Gulf → Florida → Atlantic → Maine → Great Lakes back to 100°W
-  [-100, 49], [-100, 28.5], [-97, 27.5], [-95, 29], [-90, 29.2],
-  [-87, 30.4], [-83.5, 30], [-81, 25.2], [-80, 27], [-78, 33.7],
-  [-75.5, 36.9], [-74, 39.5], [-71, 41.5], [-67, 44.6], [-69, 47.5],
-  [-75, 45], [-79, 43], [-82, 43], [-84.5, 46.5], [-89, 48], [-95, 49], [-100, 49],
+  // Shared 100W split → Gulf/Atlantic coast → Great Lakes back west.
+  [-100.0, 49.0], [-100.0, 28.8], [-97.0, 27.8], [-95.0, 28.8],
+  [-91.0, 29.1], [-88.0, 30.3], [-84.5, 29.9], [-81.1, 25.2],
+  [-80.0, 27.5], [-78.5, 32.5], [-76.0, 36.0], [-74.2, 40.0],
+  [-70.7, 42.0], [-67.0, 44.7], [-75.0, 44.4],
+  [-79.2, 43.2], [-82.4, 44.2], [-84.8, 46.6], [-91.0, 48.2],
+  [-95.0, 49.0], [-100.0, 49.0],
 ];
 
-// Russia splits — rough rectangles bounded by recognizable lat/lon ranges
+// Russia splits. Adjacent territories share boundary segments so Mapbox fill
+// layers do not visibly double-paint or flicker on hover.
 const URAL: PolyRing = [
-  [30, 75], [60, 75], [60, 50], [55, 47], [40, 47], [30, 50], [30, 75],
+  [30.0, 75.0], [60.0, 75.0], [60.0, 55.0], [55.0, 50.0],
+  [45.0, 47.0], [35.0, 50.0], [30.0, 55.0], [30.0, 75.0],
 ];
 
 const SIBERIA: PolyRing = [
-  [60, 75], [110, 78], [110, 65], [105, 55], [95, 50], [80, 50], [60, 50], [60, 75],
-];
-
-const YAKUTSK: PolyRing = [
-  [110, 78], [145, 78], [145, 65], [140, 60], [120, 60], [110, 65], [110, 78],
+  [60.0, 75.0], [110.0, 78.0], [110.0, 62.0], [100.0, 58.0],
+  [95.0, 50.0], [80.0, 50.0], [60.0, 55.0], [60.0, 75.0],
 ];
 
 const IRKUTSK: PolyRing = [
-  [95, 65], [120, 65], [120, 50], [105, 50], [95, 50], [95, 65],
+  [95.0, 50.0], [100.0, 58.0], [110.0, 62.0], [120.0, 58.0],
+  [120.0, 50.0], [105.0, 49.4], [95.0, 50.0],
+];
+
+const YAKUTSK: PolyRing = [
+  [110.0, 78.0], [145.0, 76.0], [145.0, 62.0], [132.0, 60.0],
+  [120.0, 58.0], [110.0, 62.0], [110.0, 78.0],
 ];
 
 const KAMCHATKA: PolyRing = [
-  [145, 65], [165, 65], [170, 60], [165, 53], [157, 51], [155, 56], [145, 58], [145, 65],
-];
-
-// New Guinea split — east half of Papua New Guinea (Indonesia handles west).
-const NEW_GUINEA: PolyRing = [
-  [141, -2], [151, -2], [156, -7], [150, -11], [141, -9], [141, -2],
+  [145.0, 62.0], [156.0, 64.5], [165.0, 63.0], [171.0, 59.5],
+  [166.0, 53.5], [160.0, 51.0], [155.0, 54.0], [145.0, 56.0],
+  [145.0, 62.0],
 ];
 
 const WESTERN_AUSTRALIA: PolyRing = [
-  [113, -22], [113, -34], [126, -32], [135, -34], [138, -34], [138, -26], [135, -16], [130, -12], [126, -14], [113, -22],
+  // WA coast with the classic Risk split near 138E.
+  [113.2, -22.0], [114.0, -29.0], [115.2, -34.8], [121.5, -34.2],
+  [128.0, -31.7], [134.0, -32.7], [138.0, -34.0], [138.0, -25.5],
+  [134.5, -18.0], [129.0, -13.0], [124.5, -14.2], [119.0, -18.0],
+  [113.2, -22.0],
 ];
 
 const EASTERN_AUSTRALIA: PolyRing = [
-  [138, -26], [138, -39], [147, -43], [153, -28], [145, -16], [142, -10], [138, -16], [138, -26],
+  // Eastern AU coast, Bass Strait edge, and the shared 138E interior split.
+  [138.0, -34.0], [141.0, -38.4], [146.5, -39.0], [151.5, -33.0],
+  [153.5, -27.0], [150.8, -22.0], [146.0, -16.0], [142.0, -10.5],
+  [138.0, -16.0], [138.0, -25.5], [138.0, -34.0],
 ];
 
 export const SUB_NATIONAL_POLYGONS: Partial<Record<TerritoryID, PolyRing>> = {
@@ -181,7 +206,6 @@ export const SUB_NATIONAL_POLYGONS: Partial<Record<TerritoryID, PolyRing>> = {
   yakutsk: YAKUTSK,
   irkutsk: IRKUTSK,
   kamchatka: KAMCHATKA,
-  'new-guinea': NEW_GUINEA,
   'western-australia': WESTERN_AUSTRALIA,
   'eastern-australia': EASTERN_AUSTRALIA,
 };
