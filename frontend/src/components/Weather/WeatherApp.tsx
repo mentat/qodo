@@ -27,7 +27,7 @@ export function WeatherApp() {
   return (
     <Stack maw={900} mx="auto">
       <Group justify="space-between" wrap="wrap">
-        <Title order={3}>🌆 Weather (definitely real)</Title>
+        <Title order={3}>🌆 Weather</Title>
         <Group gap="xs">
           <TextInput placeholder="City" value={input} onChange={(e) => setInput(e.currentTarget.value)} />
           <Button leftSection={<IconSearch size={16} />} onClick={() => void fetchForecast(input)}>
@@ -43,7 +43,7 @@ export function WeatherApp() {
       ) : (
         <>
           <Text c="dimmed" size="sm">
-            Mocked forecast for {forecast.location}. (Marvin still refuses to discuss the weather.)
+            Simulated forecast for {forecast.location}.
           </Text>
           <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }}>
             {forecast.days.map((d) => (
