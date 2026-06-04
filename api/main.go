@@ -108,11 +108,19 @@ func main() {
 	}
 	riskAI := agent.NewRiskAI(riskStore)
 	riskHandler := handlers.NewRiskHandler(riskStore)
+	var verifyPubsubOIDC func(context.Context, string) error
+	if aud := os.Getenv("PUBSUB_PUSH_AUDIENCE"); aud != "" {
+		verifyPubsubOIDC = func(c context.Context, tok string) error {
+			_, e := idtoken.Validate(c, tok, aud)
+			return e
+		}
+	}
 	riskPubsubHandler := handlers.NewRiskPubsubHandler(handlers.RiskPubsubConfig{
-		Store:     riskStore,
-		AI:        riskAI,
-		Receipts:  handlers.NewFirestoreReceipts(fsClient, "pubsubReceipts"),
-		PushToken: os.Getenv("PUBSUB_PUSH_TOKEN"),
+		Store:      riskStore,
+		AI:         riskAI,
+		Receipts:   handlers.NewFirestoreReceipts(fsClient, "pubsubReceipts"),
+		PushToken:  os.Getenv("PUBSUB_PUSH_TOKEN"),
+		VerifyOIDC: verifyPubsubOIDC,
 	})
 
 	// Build Marvin. Any failure here is fatal — the agent is a product requirement.
@@ -153,13 +161,6 @@ func main() {
 	if replyAgent, rerr := agent.NewReplyAgent(ctx, agent.ReplyConfig{ProjectID: projectID}); rerr != nil {
 		log.Printf("reply agent disabled: %v", rerr)
 	} else {
-		var verifyOIDC func(context.Context, string) error
-		if aud := os.Getenv("PUBSUB_PUSH_AUDIENCE"); aud != "" {
-			verifyOIDC = func(c context.Context, tok string) error {
-				_, e := idtoken.Validate(c, tok, aud)
-				return e
-			}
-		}
 		pubsubHandler = handlers.NewPubsubHandler(handlers.PubsubConfig{
 			Mail:       emailSvc,
 			Gen:        replyAgent,
@@ -167,7 +168,7 @@ func main() {
 			Users:      seedSvc,
 			Events:     eventSvc,
 			PushToken:  os.Getenv("PUBSUB_PUSH_TOKEN"),
-			VerifyOIDC: verifyOIDC,
+			VerifyOIDC: verifyPubsubOIDC,
 		})
 	}
 

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"log"
 	"net/http"
 
@@ -22,26 +23,26 @@ type RiskPubsubHandler struct {
 	ai         *agent.RiskAI
 	receipts   receiptStore
 	pushToken  string
-	verifyOIDC func(ctx interface{ Done() <-chan struct{} }, token string) error
+	verifyOIDC func(ctx context.Context, token string) error
 }
 
 // RiskPubsubConfig wires a RiskPubsubHandler.
 type RiskPubsubConfig struct {
-	Store     *risk.Store
-	AI        *agent.RiskAI
-	Receipts  receiptStore
-	PushToken string
-	// VerifyOIDC has the same signature as PubsubConfig.VerifyOIDC; passing nil
-	// disables the OIDC bearer check (token query-param still enforced if set).
+	Store      *risk.Store
+	AI         *agent.RiskAI
+	Receipts   receiptStore
+	PushToken  string
+	VerifyOIDC func(ctx context.Context, token string) error
 }
 
 // NewRiskPubsubHandler builds a handler.
 func NewRiskPubsubHandler(cfg RiskPubsubConfig) *RiskPubsubHandler {
 	return &RiskPubsubHandler{
-		store:     cfg.Store,
-		ai:        cfg.AI,
-		receipts:  cfg.Receipts,
-		pushToken: cfg.PushToken,
+		store:      cfg.Store,
+		ai:         cfg.AI,
+		receipts:   cfg.Receipts,
+		pushToken:  cfg.PushToken,
+		verifyOIDC: cfg.VerifyOIDC,
 	}
 }
 
@@ -52,6 +53,17 @@ func (h *RiskPubsubHandler) Turn(w http.ResponseWriter, r *http.Request) {
 	if h.pushToken != "" && r.URL.Query().Get("token") != h.pushToken {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
+	}
+	if h.verifyOIDC != nil {
+		tok := bearerToken(r)
+		if tok == "" {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		if err := h.verifyOIDC(r.Context(), tok); err != nil {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
 	}
 	env, ok := decodeEnvelope(r)
 	if !ok {

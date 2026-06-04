@@ -8,6 +8,8 @@ env:
   PROJECT_ID: qodo-demo
   REGION: us-central1
   AR_REPO: us-central1-docker.pkg.dev/qodo-demo/qodo
+  PUBSUB_PUSH_AUDIENCE: qodo-pubsub
+  PUBSUB_PUSH_SERVICE_ACCOUNT: pubsub-push@qodo-demo.iam.gserviceaccount.com
 
 jobs:
   deploy-api:
@@ -28,6 +30,9 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
+      - name: Test API
+        run: cd api && go test ./...
+
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
@@ -46,9 +51,55 @@ jobs:
           region: ${{ env.REGION }}
           image: ${{ env.AR_REPO }}/qodo-api:${{ github.sha }}
           env_vars: |
-            GOOGLE_CLOUD_PROJECT=qodo-demo
-            PUBSUB_PUSH_AUDIENCE=qodo-pubsub
+            GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }}
+            GOOGLE_CLOUD_LOCATION=${{ env.REGION }}
+            NEWSAPI_API_KEY=${{ secrets.NEWSAPI_API_KEY }}
+            PUBSUB_PUSH_AUDIENCE=${{ env.PUBSUB_PUSH_AUDIENCE }}
           flags: --allow-unauthenticated
+
+      - name: Ensure Pub/Sub push resources
+        env:
+          API_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+
+          ensure_topic() {
+            local topic="$1"
+            gcloud pubsub topics describe "$topic" --project "${PROJECT_ID}" >/dev/null 2>&1 \
+              || gcloud pubsub topics create "$topic" --project "${PROJECT_ID}"
+          }
+
+          ensure_push_subscription() {
+            local sub="$1"
+            local topic="$2"
+            local endpoint="$3"
+            local ack_deadline="$4"
+
+            if gcloud pubsub subscriptions describe "$sub" --project "${PROJECT_ID}" >/dev/null 2>&1; then
+              gcloud pubsub subscriptions update "$sub" \
+                --project "${PROJECT_ID}" \
+                --push-endpoint "$endpoint" \
+                --push-auth-service-account "${PUBSUB_PUSH_SERVICE_ACCOUNT}" \
+                --push-auth-token-audience "${PUBSUB_PUSH_AUDIENCE}" \
+                --ack-deadline "$ack_deadline"
+            else
+              gcloud pubsub subscriptions create "$sub" \
+                --project "${PROJECT_ID}" \
+                --topic "$topic" \
+                --push-endpoint "$endpoint" \
+                --push-auth-service-account "${PUBSUB_PUSH_SERVICE_ACCOUNT}" \
+                --push-auth-token-audience "${PUBSUB_PUSH_AUDIENCE}" \
+                --ack-deadline "$ack_deadline"
+            fi
+          }
+
+          ensure_topic email-replies
+          ensure_topic suite-drip
+          ensure_topic risk-turns
+
+          ensure_push_subscription email-replies-push email-replies "${API_URL}/api/pubsub/email-reply" 60
+          ensure_push_subscription suite-drip-push suite-drip "${API_URL}/api/pubsub/drip" 120
+          ensure_push_subscription risk-turns-push risk-turns "${API_URL}/api/pubsub/risk-turn" 120
 
   deploy-frontend:
     runs-on: ubuntu-latest
@@ -58,10 +109,18 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
 
-      - name: Install and Build Frontend
+      - name: Install, Test, and Build Frontend
+        env:
+          VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}
         run: |
+          set -euo pipefail
+          if [ -z "${VITE_MAPBOX_TOKEN}" ]; then
+            echo "::error::VITE_MAPBOX_TOKEN secret is required for the Risk globe"
+            exit 1
+          fi
           cd frontend
           bun install
+          bun test
           bun run build
 
       - id: auth

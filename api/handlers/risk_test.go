@@ -107,6 +107,36 @@ func TestRiskPubsubHandler_TokenGate(t *testing.T) {
 	}
 }
 
+// TestRiskPubsubHandler_OIDCGate mirrors the email/drip push contract: when
+// OIDC verification is configured, a bearer token must be present and valid.
+func TestRiskPubsubHandler_OIDCGate(t *testing.T) {
+	h := NewRiskPubsubHandler(RiskPubsubConfig{
+		Receipts: newRiskTestReceipts(),
+		VerifyOIDC: func(_ context.Context, token string) error {
+			if token != "valid-token" {
+				return context.Canceled
+			}
+			return nil
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/pubsub/risk-turn",
+		strings.NewReader(`{"message":{"messageId":"m1"}}`))
+	w := httptest.NewRecorder()
+	h.Turn(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("no-bearer request: want 403, got %d", w.Code)
+	}
+
+	req2 := httptest.NewRequest(http.MethodPost, "/api/pubsub/risk-turn",
+		strings.NewReader(`{"message":{"messageId":"m2","attributes":{}}}`))
+	req2.Header.Set("Authorization", "Bearer valid-token")
+	w2 := httptest.NewRecorder()
+	h.Turn(w2, req2)
+	if w2.Code != http.StatusOK {
+		t.Errorf("bearer+empty payload: want 200 ack, got %d", w2.Code)
+	}
+}
+
 // TestRiskPubsubHandler_Idempotent: duplicate deliveries with the same
 // messageId are silently acked without re-running the action.
 func TestRiskPubsubHandler_Idempotent(t *testing.T) {
