@@ -42,9 +42,6 @@ export function WeatherApp() {
         </Center>
       ) : (
         <>
-          <Text c="dimmed" size="sm">
-            Simulated forecast for {forecast.location}.
-          </Text>
           <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }}>
             {forecast.days.map((d) => (
               <Card

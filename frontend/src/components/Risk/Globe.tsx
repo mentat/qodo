@@ -1,9 +1,25 @@
-import { useMemo, useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Html, Stars, Line } from '@react-three/drei';
-import * as THREE from 'three';
-import { TERRITORIES, latLonToVec3, type TerritoryID } from './board';
-import { useRiskStore, humanPlayer } from '../../store/riskStore';
+// Mapbox-based realistic globe for the Risk app.
+//
+// The center of the play screen is a Mapbox GL JS map projected as a globe,
+// rendering the outdoors-v12 basemap (topographic / shaded relief) with
+// 42 Risk territory polygons overlaid as a GeoJSON source. Fill color is
+// driven by ownership; the selected territory gets a glowing pink border;
+// army counts render as labels via a symbol layer.
+//
+// Public contract (consumed by GameScreen.tsx) is unchanged from v1:
+//   <Globe onTerritoryClick={...} />
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import MapGL, {
+  Layer, Source, type MapRef, type MapMouseEvent,
+} from 'react-map-gl/mapbox';
+import { Box, Center, Loader, Text } from '@mantine/core';
+import { useRiskStore } from '../../store/riskStore';
+import {
+  loadTerritoryFeatures,
+  type TerritoryFeatureCollection,
+} from './territoryGeo';
+import type { TerritoryID } from './board';
 import type { GameState, Player } from '../../types/risk';
 
 // Player → Mantine palette → hex map. Reads CSS variables at runtime so the
@@ -13,264 +29,207 @@ function cssVar(name: string): string {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return v || '#888';
 }
-
 function playerColorHex(p: Player | undefined): string {
   if (!p) return cssVar('--mantine-color-gray-5');
   return cssVar(`--mantine-color-${p.color}-6`);
 }
 
-// ────── Globe ─────────────────────────────────────────────────────────────
-
 interface Props {
   onTerritoryClick: (t: TerritoryID) => void;
 }
 
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined;
+const MAP_STYLE = 'mapbox://styles/mapbox/outdoors-v12';
+
 export function Globe({ onTerritoryClick }: Props) {
-  return (
-    <div style={{
-      position: 'absolute', inset: 0,
-      borderRadius: 16, overflow: 'hidden',
-      background: 'radial-gradient(circle at 30% 20%, #1a0033 0%, #0a0014 70%, #000 100%)',
-      boxShadow: 'inset 0 0 60px rgba(155, 93, 229, 0.25)',
-    }}>
-      <Canvas
-        camera={{ position: [0, 0, 3.6], fov: 45 }}
-        gl={{ antialias: true, alpha: true }}
-      >
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[5, 3, 5]} intensity={1.0} />
-        <directionalLight position={[-5, -2, -3]} intensity={0.3} color="#ff66cc" />
-        <Stars radius={50} depth={20} count={1500} factor={3} fade speed={0.4} />
-
-        <Scene onTerritoryClick={onTerritoryClick} />
-
-        <OrbitControls
-          enablePan={false}
-          enableZoom
-          enableDamping
-          dampingFactor={0.08}
-          autoRotate
-          autoRotateSpeed={0.45}
-          minDistance={2.4}
-          maxDistance={6}
-        />
-      </Canvas>
-    </div>
-  );
-}
-
-function Scene({ onTerritoryClick }: { onTerritoryClick: (t: TerritoryID) => void }) {
   const game = useRiskStore((s) => s.game);
   const selectedFrom = useRiskStore((s) => s.selectedFrom);
-  const human = humanPlayer(game);
+  const mapRef = useRef<MapRef | null>(null);
 
-  return (
-    <group>
-      <PlanetSphere />
-      <Graticule />
-      {game && TERRITORIES.map((t) => {
-        const ts = game.board[t.id];
-        const owner = game.players.find((p) => p.id === ts?.ownerId);
-        const isSelected = selectedFrom === t.id;
-        const isMine = owner?.id === human?.id;
-        return (
-          <Territory
-            key={t.id}
-            id={t.id}
-            lat={t.lat}
-            lon={t.lon}
-            name={t.name}
-            armies={ts?.armies ?? 0}
-            color={playerColorHex(owner)}
-            isSelected={isSelected}
-            isMine={isMine}
-            onClick={onTerritoryClick}
-          />
-        );
-      })}
-      {/* Adjacency arc from selected attacker to hovered/possible targets */}
-      {game && selectedFrom && <SelectionArcs from={selectedFrom} game={game} />}
-    </group>
-  );
-}
-
-// ────── PlanetSphere ──────────────────────────────────────────────────────
-
-function PlanetSphere() {
-  const ref = useRef<THREE.Mesh>(null);
-  // Slow extra rotation on top of OrbitControls.autoRotate — turns it into a
-  // gently-spinning planet rather than a fixed camera orbit.
-  useFrame((_, delta) => {
-    if (ref.current) ref.current.rotation.y += delta * 0.02;
-  });
-  return (
-    <mesh ref={ref}>
-      <sphereGeometry args={[1, 64, 64]} />
-      <meshStandardMaterial
-        color="#1a0a3d"
-        emissive="#1a0a3d"
-        emissiveIntensity={0.25}
-        roughness={0.7}
-        metalness={0.15}
-      />
-    </mesh>
-  );
-}
-
-// Graticule: faint synthwave-purple lat/lon grid drawn on the sphere.
-function Graticule() {
-  const segments = useMemo(() => {
-    const out: [number, number, number][][] = [];
-    // Latitudes
-    for (let lat = -60; lat <= 60; lat += 30) {
-      const ring: [number, number, number][] = [];
-      for (let lon = -180; lon <= 180; lon += 5) {
-        ring.push(latLonToVec3(lat, lon, 1.001));
-      }
-      out.push(ring);
-    }
-    // Longitudes
-    for (let lon = -180; lon < 180; lon += 30) {
-      const ring: [number, number, number][] = [];
-      for (let lat = -90; lat <= 90; lat += 5) {
-        ring.push(latLonToVec3(lat, lon, 1.001));
-      }
-      out.push(ring);
-    }
-    return out;
+  // 1) Lazy-load the 42 Risk-territory GeoJSON features once on mount.
+  const [features, setFeatures] = useState<TerritoryFeatureCollection | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    loadTerritoryFeatures()
+      .then((f) => { if (!cancelled) setFeatures(f); })
+      .catch((e) => { if (!cancelled) setLoadError((e as Error).message); });
+    return () => { cancelled = true; };
   }, []);
-  return (
-    <group>
-      {segments.map((points, i) => (
-        <Line key={i} points={points} color="#9b5de5" opacity={0.18} transparent lineWidth={1} />
-      ))}
-    </group>
+
+  // 2) Re-decorate features with current owner/armies/color whenever game changes.
+  const decorated = useMemo<TerritoryFeatureCollection | null>(() => {
+    if (!features || !game) return features;
+    const playerById = new Map(game.players.map((p) => [p.id, p]));
+    return {
+      type: 'FeatureCollection',
+      features: features.features.map((f) => {
+        const ts = game.board[f.properties.id];
+        const owner = ts ? playerById.get(ts.ownerId) : undefined;
+        return {
+          ...f,
+          properties: {
+            ...f.properties,
+            ownerId: owner?.id ?? '',
+            armies: ts?.armies ?? 0,
+            color: playerColorHex(owner),
+          },
+        };
+      }),
+    };
+  }, [features, game]);
+
+  // 3) Click → translate Mapbox feature to TerritoryID and dispatch.
+  const handleClick = useCallback(
+    (e: MapMouseEvent) => {
+      const feat = e.features?.[0];
+      if (!feat) return;
+      const id = (feat.properties?.id as TerritoryID | undefined);
+      if (id) onTerritoryClick(id);
+    },
+    [onTerritoryClick],
   );
-}
 
-// ────── Territory marker ──────────────────────────────────────────────────
+  // 4) Pointer cursor when hovering a territory.
+  const handleMouseEnter = useCallback(() => {
+    const map = mapRef.current?.getMap();
+    if (map) map.getCanvas().style.cursor = 'pointer';
+  }, []);
+  const handleMouseLeave = useCallback(() => {
+    const map = mapRef.current?.getMap();
+    if (map) map.getCanvas().style.cursor = '';
+  }, []);
 
-interface TerritoryProps {
-  id: TerritoryID;
-  lat: number;
-  lon: number;
-  name: string;
-  armies: number;
-  color: string;
-  isSelected: boolean;
-  isMine: boolean;
-  onClick: (t: TerritoryID) => void;
-}
+  // 5) Auto-rotate the globe while idle (pauses on user drag/zoom).
+  const userInteractingRef = useRef(false);
+  useEffect(() => {
+    let frame = 0;
+    const tick = () => {
+      const map = mapRef.current?.getMap();
+      if (map && !userInteractingRef.current && map.isStyleLoaded()) {
+        const c = map.getCenter();
+        map.easeTo({ center: [c.lng + 0.06, c.lat], duration: 50, easing: (t) => t });
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
-function Territory({ id, lat, lon, armies, color, isSelected, isMine, onClick, name }: TerritoryProps) {
-  const pos = useMemo<[number, number, number]>(() => latLonToVec3(lat, lon, 1.03), [lat, lon]);
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame((_, dt) => {
-    if (ref.current && isSelected) {
-      ref.current.rotation.y += dt * 1.6;
-    }
-  });
+  if (!MAPBOX_TOKEN) {
+    return (
+      <Box style={{
+        position: 'absolute', inset: 0, borderRadius: 16,
+        background: 'var(--mantine-color-synthPurple-light)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+      }}>
+        <Text size="sm" c="dimmed" ta="center">
+          Mapbox token missing. Set <b>VITE_MAPBOX_TOKEN</b> in <code>frontend/.env</code>
+          {' '}and reload. See <code>frontend/.env.example</code>.
+        </Text>
+      </Box>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Center style={{ position: 'absolute', inset: 0 }}>
+        <Text size="sm" c="neonPink.6">Failed to load globe data: {loadError}</Text>
+      </Center>
+    );
+  }
 
   return (
-    <group position={pos}>
-      <mesh
-        ref={ref}
-        onPointerDown={(e) => { e.stopPropagation(); onClick(id); }}
-        onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer'; }}
-        onPointerOut={() => { document.body.style.cursor = ''; }}
-      >
-        <sphereGeometry args={[isSelected ? 0.045 : 0.035, 16, 16]} />
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={isSelected ? 1.2 : isMine ? 0.7 : 0.45}
-          roughness={0.3}
-          metalness={0.6}
-        />
-      </mesh>
-      <Html
-        center
-        position={[0, 0.06, 0]}
-        style={{
-          pointerEvents: 'none',
-          fontSize: 11,
-          fontWeight: 800,
-          color: 'white',
-          textShadow: '0 0 6px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,1)',
-          whiteSpace: 'nowrap',
-          userSelect: 'none',
+    <Box style={{
+      position: 'absolute', inset: 0, borderRadius: 16, overflow: 'hidden',
+      boxShadow: 'inset 0 0 60px rgba(155, 93, 229, 0.25)',
+    }}>
+      <MapGL
+        ref={mapRef}
+        mapboxAccessToken={MAPBOX_TOKEN}
+        mapStyle={MAP_STYLE}
+        projection={{ name: 'globe' }}
+        initialViewState={{ latitude: 20, longitude: 0, zoom: 1.4 }}
+        onLoad={(e) => {
+          // Synthwave-tinted atmosphere — Mapbox renders the globe's fog +
+          // space backdrop based on these colors.
+          e.target.setFog({
+            color: 'rgb(26, 10, 61)',
+            'high-color': 'rgb(155, 93, 229)',
+            'horizon-blend': 0.04,
+            'space-color': 'rgb(10, 0, 20)',
+            'star-intensity': 0.6,
+          });
         }}
+        onMouseDown={() => { userInteractingRef.current = true; }}
+        onMouseUp={() => { userInteractingRef.current = false; }}
+        onTouchStart={() => { userInteractingRef.current = true; }}
+        onTouchEnd={() => { userInteractingRef.current = false; }}
+        interactiveLayerIds={['risk-fill']}
+        onClick={handleClick}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
-        <div style={{
-          padding: '2px 6px',
-          borderRadius: 6,
-          background: `${color}d8`,
-          border: isSelected ? '1.5px solid white' : '1px solid rgba(255,255,255,0.25)',
-          display: 'flex', alignItems: 'center', gap: 4,
-        }}>
-          <span style={{ fontSize: 10, opacity: 0.85 }}>{abbrev(name)}</span>
-          <span style={{ fontSize: 12 }}>{armies}</span>
-        </div>
-      </Html>
-    </group>
+        {decorated && (
+          <Source id="risk" type="geojson" data={decorated} promoteId="id">
+            <Layer
+              id="risk-fill"
+              type="fill"
+              paint={{
+                'fill-color': ['get', 'color'],
+                'fill-opacity': [
+                  'case',
+                  ['==', ['get', 'id'], selectedFrom ?? ''], 0.78,
+                  0.55,
+                ],
+              }}
+            />
+            <Layer
+              id="risk-line"
+              type="line"
+              paint={{
+                'line-color': 'rgba(255, 255, 255, 0.7)',
+                'line-width': 1.2,
+              }}
+            />
+            <Layer
+              id="risk-selected-outline"
+              type="line"
+              filter={['==', ['get', 'id'], selectedFrom ?? '']}
+              paint={{
+                'line-color': '#ff00aa',
+                'line-width': 3,
+                'line-blur': 1.5,
+              }}
+            />
+            <Layer
+              id="risk-army-labels"
+              type="symbol"
+              layout={{
+                'text-field': ['to-string', ['get', 'armies']],
+                'text-size': 14,
+                'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+                'text-allow-overlap': true,
+                'text-ignore-placement': true,
+              }}
+              paint={{
+                'text-color': '#ffffff',
+                'text-halo-color': '#000000',
+                'text-halo-width': 1.4,
+              }}
+            />
+          </Source>
+        )}
+      </MapGL>
+      {!decorated && (
+        <Center style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+          <Loader size="md" color="synthPurple" />
+        </Center>
+      )}
+    </Box>
   );
 }
 
-// abbrev shortens a territory name for the in-globe label — long ones get
-// initials, short ones stay full.
-function abbrev(name: string): string {
-  if (name.length <= 11) return name;
-  return name
-    .split(' ')
-    .map((w) => (w.length <= 3 ? w : w[0].toUpperCase()))
-    .join(' ');
-}
-
-// SelectionArcs: glowing great-circle arcs from the selected attacker to each
-// adjacent enemy territory, drawn as 3D lines on the sphere.
-function SelectionArcs({ from, game }: { from: TerritoryID; game: GameState }) {
-  const fromDef = TERRITORIES.find((t) => t.id === from);
-  if (!fromDef) return null;
-  const fromVec = latLonToVec3(fromDef.lat, fromDef.lon, 1.03);
-  return (
-    <group>
-      {fromDef.adjacent.map((adj) => {
-        const adjDef = TERRITORIES.find((t) => t.id === adj);
-        if (!adjDef) return null;
-        const toVec = latLonToVec3(adjDef.lat, adjDef.lon, 1.03);
-        const target = game.board[adj];
-        const targetOwner = game.players.find((p) => p.id === target?.ownerId);
-        const isEnemy = targetOwner && targetOwner.kind !== 'human' && targetOwner.id !== game.players.find((p) => p.kind === 'human')?.id;
-        const color = isEnemy ? '#ff00aa' : '#9b5de5';
-        return <Arc key={adj} from={fromVec} to={toVec} color={color} />;
-      })}
-    </group>
-  );
-}
-
-// Arc: a curved line traveling along the sphere's surface between two points,
-// approximated by sampling slerp on the unit sphere.
-function Arc({ from, to, color }: {
-  from: [number, number, number]; to: [number, number, number]; color: string;
-}) {
-  const points = useMemo(() => {
-    const v1 = new THREE.Vector3(...from).normalize();
-    const v2 = new THREE.Vector3(...to).normalize();
-    const omega = Math.acos(Math.min(1, Math.max(-1, v1.dot(v2))));
-    const sinO = Math.sin(omega);
-    const N = 24;
-    const out: [number, number, number][] = [];
-    for (let i = 0; i <= N; i++) {
-      const t = i / N;
-      const a = sinO === 0 ? 1 - t : Math.sin((1 - t) * omega) / sinO;
-      const b = sinO === 0 ? t : Math.sin(t * omega) / sinO;
-      const v = v1.clone().multiplyScalar(a).add(v2.clone().multiplyScalar(b));
-      // Lift the midpoint slightly off the surface so the arc reads as a "hop".
-      const lift = 1 + 0.05 * Math.sin(t * Math.PI);
-      v.multiplyScalar(lift);
-      out.push([v.x, v.y, v.z]);
-    }
-    return out;
-  }, [from, to]);
-  return <Line points={points} color={color} lineWidth={2} transparent opacity={0.85} />;
-}
+// Re-export for any consumers that imported the helper from the v1 file.
+// Used internally by GameScreen.tsx; safe no-op for anything else.
+export type { GameState };

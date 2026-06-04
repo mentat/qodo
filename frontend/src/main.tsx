@@ -9,6 +9,10 @@ import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
 import '@mantine/notifications/styles.css';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+// Mapbox GL controls + popups + attribution badge styling. Loaded at the app
+// root so the Risk globe gets it on first navigation (the bundle cost is
+// tiny — ~12 KB).
+import 'mapbox-gl/dist/mapbox-gl.css';
 import './app.css';
 import { theme } from './theme';
 import App from './App';
