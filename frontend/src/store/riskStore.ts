@@ -63,8 +63,14 @@ function objectOrEmpty<T extends Record<string, unknown>>(v: unknown): T {
 export function normalizeGame(raw: unknown): GameState | null {
   if (!raw || typeof raw !== 'object') return null;
   const g = raw as GameState;
+  const turn = (isRecord(g.turn) ? g.turn : {}) as Partial<GameState['turn']>;
   return {
     ...g,
+    turn: {
+      ...turn,
+      lastAttack: turn.lastAttack ?? null,
+      postConquestPending: turn.postConquestPending ?? null,
+    } as GameState['turn'],
     players: arrayOrEmpty<Player>(g.players).map((p) => ({
       ...p,
       cards: arrayOrEmpty<Card>(p.cards),

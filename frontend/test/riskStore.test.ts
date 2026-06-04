@@ -26,6 +26,8 @@ describe('risk store normalization', () => {
     expect(game?.events).toHaveLength(0);
     expect(game?.deck).toHaveLength(0);
     expect(game?.setupRemaining).toEqual({});
+    expect(game?.turn.lastAttack).toBeNull();
+    expect(game?.turn.postConquestPending).toBeNull();
   });
 
   it('coerces nullable stats maps to empty records', () => {

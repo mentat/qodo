@@ -105,7 +105,7 @@ export function TurnPanel({ onSurrender, onRestart }: Props) {
               onClick={() => void endPhase()}
               disabled={
                 (game.turn.phase === 'place' && game.turn.armiesToPlace > 0) ||
-                game.turn.postConquestPending !== null
+                !!game.turn.postConquestPending
               }
             >
               End {game.turn.phase}
