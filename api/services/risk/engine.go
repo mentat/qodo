@@ -12,15 +12,15 @@ import (
 
 // Engine errors — wrapped with %w so handlers can switch on them.
 var (
-	ErrNotYourTurn        = errors.New("not your turn")
-	ErrWrongPhase         = errors.New("wrong phase")
-	ErrInvalidPlacement   = errors.New("invalid army placement")
-	ErrInvalidAttack      = errors.New("invalid attack")
-	ErrInvalidFortify     = errors.New("invalid fortify")
-	ErrInvalidCardSet     = errors.New("invalid card set")
+	ErrNotYourTurn         = errors.New("not your turn")
+	ErrWrongPhase          = errors.New("wrong phase")
+	ErrInvalidPlacement    = errors.New("invalid army placement")
+	ErrInvalidAttack       = errors.New("invalid attack")
+	ErrInvalidFortify      = errors.New("invalid fortify")
+	ErrInvalidCardSet      = errors.New("invalid card set")
 	ErrPostConquestPending = errors.New("must resolve post-conquest army movement first")
-	ErrGameOver           = errors.New("game is over")
-	ErrInvalidSetup       = errors.New("invalid game settings")
+	ErrGameOver            = errors.New("game is over")
+	ErrInvalidSetup        = errors.New("invalid game settings")
 )
 
 // startingArmies returns the per-player starting army count per the classic
@@ -921,11 +921,11 @@ func checkElimination(s State, oldOwner, killer PlayerID) State {
 	}
 	transferred := s.Players[oldIdx].Cards
 	s.Players[killIdx].Cards = append(s.Players[killIdx].Cards, transferred...)
-	s.Players[oldIdx].Cards = nil
+	s.Players[oldIdx].Cards = []Card{}
 	s.Players[oldIdx].Eliminated = true
 	s.Players[oldIdx].Alive = false
 	s = appendEvent(s, killer, "eliminate", map[string]interface{}{
-		"victim":          oldOwner,
+		"victim":           oldOwner,
 		"cardsTransferred": len(transferred),
 	})
 	return s

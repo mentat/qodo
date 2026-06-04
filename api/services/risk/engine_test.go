@@ -21,8 +21,8 @@ func fixedRand(a, b uint64) *rand.Rand {
 // converts to a string-keyed mirror; this test confirms nothing is lost.
 func TestFirestoreState_RoundTrip(t *testing.T) {
 	original := State{
-		GameID: "g-1",
-		Status: StatusPlaying,
+		GameID:   "g-1",
+		Status:   StatusPlaying,
 		Settings: Settings{Difficulty: DifficultyNormal, PlayerCount: 3},
 		Players: []Player{
 			{ID: "human", Kind: KindHuman, Cards: []Card{{ID: "c1", Type: CardInfantry, TerritoryID: TerrAlaska}}},
@@ -390,6 +390,9 @@ func TestElimination_TransfersCards(t *testing.T) {
 	}
 	if len(s2.Players[0].Cards) != 2 {
 		t.Errorf("p1 should inherit 2 cards, got %d", len(s2.Players[0].Cards))
+	}
+	if s2.Players[1].Cards == nil {
+		t.Error("eliminated player's cards should be an empty slice, not nil")
 	}
 }
 

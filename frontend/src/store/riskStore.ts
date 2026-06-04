@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import * as api from '../api/risk';
-import type { GameState, Stats, Difficulty, AttackResult } from '../types/risk';
+import type { GameState, Stats, Difficulty, AttackResult, Card, Player, RiskEvent } from '../types/risk';
 import type { TerritoryID } from '../components/Risk/board';
 
 // The Risk store mirrors mailStore's onSnapshot pattern. Writes go through
@@ -48,9 +48,48 @@ interface RiskState {
   markRendered: (seq: number) => void;
 }
 
-function normalizeGame(raw: unknown): GameState | null {
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === 'object';
+}
+
+function arrayOrEmpty<T>(v: unknown): T[] {
+  return Array.isArray(v) ? v as T[] : [];
+}
+
+function objectOrEmpty<T extends Record<string, unknown>>(v: unknown): T {
+  return (isRecord(v) ? v : {}) as T;
+}
+
+export function normalizeGame(raw: unknown): GameState | null {
   if (!raw || typeof raw !== 'object') return null;
-  return raw as GameState;
+  const g = raw as GameState;
+  return {
+    ...g,
+    players: arrayOrEmpty<Player>(g.players).map((p) => ({
+      ...p,
+      cards: arrayOrEmpty<Card>(p.cards),
+    })),
+    board: objectOrEmpty(g.board),
+    events: arrayOrEmpty<RiskEvent>(g.events).map((ev) => ({
+      ...ev,
+      payload: objectOrEmpty(ev.payload),
+    })),
+    deck: arrayOrEmpty<Card>(g.deck),
+    setupRemaining: objectOrEmpty(g.setupRemaining),
+  };
+}
+
+export function normalizeStats(raw: unknown): Stats {
+  const s = isRecord(raw) ? raw as Partial<Stats> : {};
+  return {
+    winsByDifficulty: objectOrEmpty(s.winsByDifficulty),
+    lossesByDifficulty: objectOrEmpty(s.lossesByDifficulty),
+    surrendersByDifficulty: objectOrEmpty(s.surrendersByDifficulty),
+    longestGameTurns: s.longestGameTurns ?? 0,
+    currentWinStreak: s.currentWinStreak ?? 0,
+    longestWinStreak: s.longestWinStreak ?? 0,
+    totalGamesStarted: s.totalGamesStarted ?? 0,
+  };
 }
 
 export const useRiskStore = create<RiskState>((set, get) => ({
@@ -87,18 +126,10 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       statsRef,
       (snap) => {
         if (!snap.exists()) {
-          set({ stats: {
-            winsByDifficulty: {},
-            lossesByDifficulty: {},
-            surrendersByDifficulty: {},
-            longestGameTurns: 0,
-            currentWinStreak: 0,
-            longestWinStreak: 0,
-            totalGamesStarted: 0,
-          }});
+          set({ stats: normalizeStats(null) });
           return;
         }
-        set({ stats: snap.data() as Stats });
+        set({ stats: normalizeStats(snap.data()) });
       },
       (err) => console.error('risk stats snapshot error', err),
     );
@@ -120,7 +151,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
   refresh: async () => {
     try {
       const g = await api.fetchGame();
-      set({ game: g, loading: false });
+      set({ game: normalizeGame(g), loading: false });
     } catch (e) {
       console.error('risk refresh', e);
     }
@@ -128,53 +159,53 @@ export const useRiskStore = create<RiskState>((set, get) => ({
 
   startNew: async (difficulty, playerCount) => {
     const g = await api.newGame(difficulty, playerCount);
-    set({ game: g, selectedFrom: null, renderedSeq: 0, lastRounds: [] });
+    set({ game: normalizeGame(g), selectedFrom: null, renderedSeq: 0, lastRounds: [] });
   },
 
   placeInitial: async (t) => {
     const g = await api.placeInitial(t);
-    set({ game: g });
+    set({ game: normalizeGame(g) });
   },
 
   place: async (t, n) => {
     const g = await api.placeArmies(t, n);
-    set({ game: g });
+    set({ game: normalizeGame(g) });
   },
 
   trade: async (cardIds) => {
     const g = await api.tradeCards(cardIds);
-    set({ game: g });
+    set({ game: normalizeGame(g) });
   },
 
   attack: async (from, to, mode = 'blitz') => {
     const { state, rounds } = await api.attack(from, to, mode);
-    set({ game: state, lastRounds: rounds });
+    set({ game: normalizeGame(state), lastRounds: rounds });
     return rounds;
   },
 
   resolvePostConquest: async (count) => {
     const g = await api.resolvePostConquest(count);
-    set({ game: g, selectedFrom: null });
+    set({ game: normalizeGame(g), selectedFrom: null });
   },
 
   fortify: async (from, to, count) => {
     const g = await api.fortify(from, to, count);
-    set({ game: g, selectedFrom: null });
+    set({ game: normalizeGame(g), selectedFrom: null });
   },
 
   endPhase: async () => {
     const g = await api.endPhase();
-    set({ game: g, selectedFrom: null });
+    set({ game: normalizeGame(g), selectedFrom: null });
   },
 
   skipFortify: async () => {
     const g = await api.skipFortify();
-    set({ game: g, selectedFrom: null });
+    set({ game: normalizeGame(g), selectedFrom: null });
   },
 
   surrender: async () => {
     const g = await api.surrender();
-    set({ game: g });
+    set({ game: normalizeGame(g) });
   },
 
   selectFrom: (t) => set({ selectedFrom: t }),

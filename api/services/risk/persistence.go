@@ -18,9 +18,9 @@ var ErrNoGame = errors.New("no active risk game")
 // lifetime stats. There is one active game per user (collection riskGames),
 // and one stats doc per user (collection riskStats).
 type Persistence struct {
-	fs        *firestore.Client
-	gamesCol  string
-	statsCol  string
+	fs       *firestore.Client
+	gamesCol string
+	statsCol string
 }
 
 // NewPersistence builds a Persistence using the default collection names.
@@ -100,18 +100,18 @@ type firestoreEvent struct {
 
 func fromState(s State) firestoreState {
 	out := firestoreState{
-		GameID:       s.GameID,
-		Status:       s.Status,
-		CreatedAt:    s.CreatedAt,
-		StartedAt:    s.StartedAt,
-		Settings:     s.Settings,
-		Players:      s.Players,
-		Turn:         s.Turn,
-		Deck:         s.Deck,
-		LastEventSeq: s.LastEventSeq,
-		Board:        make(map[string]TerritoryState, len(s.Board)),
+		GameID:         s.GameID,
+		Status:         s.Status,
+		CreatedAt:      s.CreatedAt,
+		StartedAt:      s.StartedAt,
+		Settings:       s.Settings,
+		Players:        normalizePlayersForFirestore(s.Players),
+		Turn:           s.Turn,
+		Deck:           s.Deck,
+		LastEventSeq:   s.LastEventSeq,
+		Board:          make(map[string]TerritoryState, len(s.Board)),
 		SetupRemaining: make(map[string]int, len(s.SetupRemaining)),
-		Events:       make([]firestoreEvent, len(s.Events)),
+		Events:         make([]firestoreEvent, len(s.Events)),
 	}
 	if s.EndedAt != nil {
 		out.EndedAt = *s.EndedAt
@@ -129,6 +129,17 @@ func fromState(s State) firestoreState {
 			PlayerID: string(e.PlayerID),
 			Kind:     e.Kind,
 			Payload:  sanitizePayload(e.Payload),
+		}
+	}
+	return out
+}
+
+func normalizePlayersForFirestore(players []Player) []Player {
+	out := make([]Player, len(players))
+	copy(out, players)
+	for i := range out {
+		if out[i].Cards == nil {
+			out[i].Cards = []Card{}
 		}
 	}
 	return out
@@ -165,16 +176,16 @@ func sanitizePayload(in map[string]interface{}) map[string]interface{} {
 
 func (fs firestoreState) toState() State {
 	out := State{
-		GameID:       fs.GameID,
-		Status:       fs.Status,
-		Settings:     fs.Settings,
-		Players:      fs.Players,
-		Turn:         fs.Turn,
-		Deck:         fs.Deck,
-		LastEventSeq: fs.LastEventSeq,
-		Board:        make(map[TerritoryID]TerritoryState, len(fs.Board)),
+		GameID:         fs.GameID,
+		Status:         fs.Status,
+		Settings:       fs.Settings,
+		Players:        fs.Players,
+		Turn:           fs.Turn,
+		Deck:           fs.Deck,
+		LastEventSeq:   fs.LastEventSeq,
+		Board:          make(map[TerritoryID]TerritoryState, len(fs.Board)),
 		SetupRemaining: make(map[PlayerID]int, len(fs.SetupRemaining)),
-		Events:       make([]Event, len(fs.Events)),
+		Events:         make([]Event, len(fs.Events)),
 	}
 	out.CreatedAt = asTime(fs.CreatedAt)
 	out.StartedAt = asTime(fs.StartedAt)
