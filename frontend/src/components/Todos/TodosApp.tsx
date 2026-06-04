@@ -98,8 +98,8 @@ export function TodosApp() {
 
   return (
     <Container size="md">
-      <Group justify="space-between" mb="md" wrap="wrap">
-        <Group gap="sm">
+      <Group justify="space-between" align="flex-start" mb="md" wrap="wrap">
+        <Group gap="sm" align="flex-start">
           <TextInput
             placeholder="Search todos..."
             leftSection={<IconSearch size={16} />}
