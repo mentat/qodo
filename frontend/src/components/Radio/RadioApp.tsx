@@ -9,7 +9,6 @@ import {
 } from '@tabler/icons-react';
 import { useRadioStore } from '../../store/radioStore';
 import type { Track } from '../../types/radio';
-import { SpectrumAnalyzer } from '../SpectrumAnalyzer';
 
 function getCurrentIndex(tracks: Track[], current: Track | null): number {
   return current ? tracks.findIndex((track) => track.id === current.id) : -1;
@@ -70,13 +69,7 @@ export function RadioApp() {
               <span>MAX</span>
             </div>
             <div className="radio-tuner">
-              <div className="radio-tuner-scale" aria-hidden="true">
-                {['88', '92', '96', '100', '104', '108'].map((mark) => (
-                  <span key={mark}>{mark}</span>
-                ))}
-              </div>
-              <div className="radio-tuner-needle" aria-hidden="true" />
-              <SpectrumAnalyzer thinking={false} />
+              <TunerDial />
             </div>
           </div>
 
@@ -180,6 +173,62 @@ function SpeakerGrill({ side }: { side: 'left' | 'right' }) {
     <div className={`radio-speaker radio-speaker-${side}`} aria-hidden="true">
       <div className="radio-speaker-ring">
         <div className="radio-speaker-core" />
+      </div>
+    </div>
+  );
+}
+
+function TunerDial() {
+  const fmMarks = ['88', '92', '96', '100', '104', '108'];
+  const amMarks = ['530', '700', '900', '1100', '1300', '1600'];
+  const ticks = Array.from({ length: 25 }, (_, index) => index);
+
+  return (
+    <div className="radio-tuner-dial" aria-label="AM/FM tuner dial">
+      <div className="radio-tuner-glass">
+        <div className="radio-tuner-row radio-tuner-row-fm">
+          <Text className="radio-band-label" size="xs" fw={900}>
+            FM MHz
+          </Text>
+          <div className="radio-tuner-track">
+            <div className="radio-tuner-ticks" aria-hidden="true">
+              {ticks.map((tick) => (
+                <span key={`fm-${tick}`} className={tick % 4 === 0 ? 'is-major' : ''} />
+              ))}
+            </div>
+            <div className="radio-tuner-numbers" aria-hidden="true">
+              {fmMarks.map((mark) => (
+                <span key={mark}>{mark}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="radio-tuner-row">
+          <Text className="radio-band-label" size="xs" fw={900}>
+            AM kHz
+          </Text>
+          <div className="radio-tuner-track">
+            <div className="radio-tuner-ticks" aria-hidden="true">
+              {ticks.map((tick) => (
+                <span key={`am-${tick}`} className={tick % 4 === 0 ? 'is-major' : ''} />
+              ))}
+            </div>
+            <div className="radio-tuner-numbers" aria-hidden="true">
+              {amMarks.map((mark) => (
+                <span key={mark}>{mark}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="radio-tuner-needle" aria-hidden="true" />
+        <div className="radio-signal-meter" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+          <span className="is-hot" />
+        </div>
       </div>
     </div>
   );

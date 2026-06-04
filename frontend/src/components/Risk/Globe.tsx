@@ -22,6 +22,21 @@ import {
 import type { TerritoryID } from './board';
 import type { GameState, Player } from '../../types/risk';
 
+const DETAIL_LABEL_TERRITORIES = new Set<TerritoryID>([
+  'central-america',
+  'iceland',
+  'great-britain',
+  'scandinavia',
+  'northern-europe',
+  'southern-europe',
+  'western-europe',
+  'egypt',
+  'japan',
+  'indonesia',
+  'new-guinea',
+  'madagascar',
+]);
+
 // Player → Mantine palette → hex map. Reads CSS variables at runtime so the
 // dark/light theme flip is honored automatically.
 function cssVar(name: string): string {
@@ -73,6 +88,7 @@ export function Globe({ onTerritoryClick }: Props) {
             ownerId: owner?.id ?? '',
             armies: ts?.armies ?? 0,
             color: playerColorHex(owner),
+            labelTier: DETAIL_LABEL_TERRITORIES.has(f.properties.id) ? 'detail' : 'primary',
           },
         };
       }),
@@ -203,19 +219,67 @@ export function Globe({ onTerritoryClick }: Props) {
               }}
             />
             <Layer
-              id="risk-army-labels"
+              id="risk-army-labels-primary"
               type="symbol"
+              filter={['==', ['get', 'labelTier'], 'primary']}
               layout={{
                 'text-field': ['to-string', ['get', 'armies']],
-                'text-size': 14,
+                'text-size': [
+                  'interpolate', ['linear'], ['zoom'],
+                  1.2, 11,
+                  2.6, 13,
+                  4.5, 15,
+                ],
+                'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+                'text-allow-overlap': false,
+                'text-ignore-placement': false,
+              }}
+              paint={{
+                'text-color': '#ffffff',
+                'text-halo-color': '#000000',
+                'text-halo-width': 1.1,
+                'text-opacity': 0.86,
+              }}
+            />
+            <Layer
+              id="risk-army-labels-detail"
+              type="symbol"
+              minzoom={2.35}
+              filter={['==', ['get', 'labelTier'], 'detail']}
+              layout={{
+                'text-field': ['to-string', ['get', 'armies']],
+                'text-size': [
+                  'interpolate', ['linear'], ['zoom'],
+                  2.35, 10,
+                  4.5, 13,
+                  6, 15,
+                ],
+                'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+                'text-allow-overlap': false,
+                'text-ignore-placement': false,
+              }}
+              paint={{
+                'text-color': '#ffffff',
+                'text-halo-color': '#000000',
+                'text-halo-width': 1,
+                'text-opacity': 0.82,
+              }}
+            />
+            <Layer
+              id="risk-selected-army-label"
+              type="symbol"
+              filter={['==', ['get', 'id'], selectedFrom ?? '']}
+              layout={{
+                'text-field': ['to-string', ['get', 'armies']],
+                'text-size': 16,
                 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
                 'text-allow-overlap': true,
                 'text-ignore-placement': true,
               }}
               paint={{
                 'text-color': '#ffffff',
-                'text-halo-color': '#000000',
-                'text-halo-width': 1.4,
+                'text-halo-color': '#ff00aa',
+                'text-halo-width': 1.6,
               }}
             />
           </Source>
