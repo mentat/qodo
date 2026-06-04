@@ -38,7 +38,7 @@ export function CardFan() {
   const [picked, setPicked] = useState<string[]>([]);
 
   const human = humanPlayer(game);
-  const cards = human?.cards ?? [];
+  const cards = useMemo(() => human?.cards ?? [], [human?.cards]);
   const isHumanTurn = game && human && game.turn.currentPlayerId === human.id;
   const canTrade = isHumanTurn && game?.turn.phase === 'place' && game?.status === 'playing';
 

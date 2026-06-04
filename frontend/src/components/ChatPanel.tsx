@@ -53,6 +53,7 @@ export function ChatPanel({ opened, onClose }: Props) {
   useEffect(() => {
     if (!opened) return;
     const pre = consumePrefill();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Prefill is consumed once when the drawer opens.
     if (pre) setText(pre);
   }, [opened, consumePrefill]);
 

@@ -301,7 +301,6 @@ export function buildTerritoryFeatures(countries: CountriesGeoJson): TerritoryFe
       for (const code of codes) {
         const f = byCode.get(code);
         if (!f) {
-          // eslint-disable-next-line no-console
           console.warn(`risk territory ${tid}: missing country ${code} in GeoJSON`);
           continue;
         }

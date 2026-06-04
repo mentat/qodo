@@ -20,7 +20,7 @@ export function TodoFilters({
   onStatusChange,
 }: TodoFiltersProps) {
   return (
-    <Group mb="md" wrap="wrap">
+    <Group gap="sm" align="center" wrap="wrap">
       <Select
         placeholder="Priority"
         clearable

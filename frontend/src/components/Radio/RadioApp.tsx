@@ -45,7 +45,7 @@ export function RadioApp() {
   };
 
   return (
-    <Stack className="radio-page" maw={960} mx="auto" gap="lg">
+    <Stack className="radio-page" maw={1080} mx="auto" gap="lg">
       <Group justify="space-between" align="end" gap="sm">
         <div>
           <Text className="radio-kicker" size="xs" fw={800}>
@@ -60,110 +60,82 @@ export function RadioApp() {
         </Badge>
       </Group>
 
-      <section className={playing ? 'radio-boombox is-playing' : 'radio-boombox'} aria-label="80s boombox radio">
-        <div className="radio-boombox-handle" aria-hidden="true" />
-        <div className="radio-boombox-face">
-          <div className="radio-top-row">
-            <div className="radio-brand">
-              <span>SYNTH</span>
-              <span>MAX</span>
+      <div className="radio-stage">
+        <section className={playing ? 'radio-boombox is-playing' : 'radio-boombox'} aria-label="80s boombox radio">
+          <div className="radio-boombox-handle" aria-hidden="true" />
+          <div className="radio-boombox-face">
+            <div className="radio-top-row">
+              <div className="radio-brand">
+                <span>SYNTH</span>
+                <span>MAX</span>
+              </div>
+              <div className="radio-tuner">
+                <TunerDial />
+              </div>
             </div>
-            <div className="radio-tuner">
-              <TunerDial />
+
+            <div className="radio-deck-row">
+              <SpeakerGrill side="left" />
+              <CassetteDeck current={current} playing={playing} />
+              <SpeakerGrill side="right" />
             </div>
-          </div>
 
-          <div className="radio-deck-row">
-            <SpeakerGrill side="left" />
-            <CassetteDeck current={current} playing={playing} />
-            <SpeakerGrill side="right" />
-          </div>
-
-          <Group className="radio-control-deck" justify="center" gap="xs" wrap="nowrap">
-            <ActionIcon
-              className="radio-deck-button"
-              size={46}
-              variant="filled"
-              radius="xs"
-              aria-label="Previous track"
-              disabled={!hasTracks}
-              onClick={() => void playPrevious()}
-            >
-              <IconPlayerTrackPrevFilled size={22} />
-            </ActionIcon>
-            <ActionIcon
-              className="radio-deck-button radio-deck-button-primary"
-              size={58}
-              variant="filled"
-              radius="xs"
-              aria-label={playing ? 'Pause radio' : 'Play radio'}
-              disabled={!hasTracks}
-              onClick={() => void toggle()}
-            >
-              {playing ? <IconPlayerPauseFilled size={28} /> : <IconPlayerPlayFilled size={28} />}
-            </ActionIcon>
-            <ActionIcon
-              className="radio-deck-button"
-              size={46}
-              variant="filled"
-              radius="xs"
-              aria-label="Stop radio"
-              disabled={!current}
-              onClick={pause}
-            >
-              <IconPlayerStopFilled size={20} />
-            </ActionIcon>
-            <ActionIcon
-              className="radio-deck-button"
-              size={46}
-              variant="filled"
-              radius="xs"
-              aria-label="Next track"
-              disabled={!hasTracks}
-              onClick={() => void playNext()}
-            >
-              <IconPlayerTrackNextFilled size={22} />
-            </ActionIcon>
-          </Group>
-        </div>
-      </section>
-
-      <Stack className="radio-playlist" gap={6} aria-label="Radio tracks">
-        {tracks.map((track, index) => {
-          const isCurrent = current?.id === track.id;
-          return (
-            <Group
-              key={track.id}
-              className={isCurrent ? 'radio-track-row is-current' : 'radio-track-row'}
-              justify="space-between"
-              gap="sm"
-              wrap="nowrap"
-            >
-              <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-                <Text className="radio-track-number" size="xs" fw={800} aria-hidden="true">
-                  {String(index + 1).padStart(2, '0')}
-                </Text>
-                <div className="radio-track-copy">
-                  <Text size="sm" fw={isCurrent ? 800 : 600} truncate>
-                    {track.title}
-                  </Text>
-                  <Text size="xs" c="dimmed" truncate>
-                    {track.artist}
-                  </Text>
-                </div>
-              </Group>
+            <Group className="radio-control-deck" justify="center" gap="xs" wrap="nowrap">
               <ActionIcon
-                className="radio-track-button"
-                variant={isCurrent ? 'filled' : 'subtle'}
-                onClick={() => void (isCurrent ? toggle() : play(track))}
-                aria-label={isCurrent && playing ? `Pause ${track.title}` : `Play ${track.title}`}
+                className="radio-deck-button"
+                size={42}
+                variant="filled"
+                radius="xs"
+                aria-label="Previous track"
+                disabled={!hasTracks}
+                onClick={() => void playPrevious()}
               >
-                {isCurrent && playing ? <IconPlayerPauseFilled size={18} /> : <IconPlayerPlayFilled size={18} />}
+                <IconPlayerTrackPrevFilled size={20} />
+              </ActionIcon>
+              <ActionIcon
+                className="radio-deck-button radio-deck-button-primary"
+                size={52}
+                variant="filled"
+                radius="xs"
+                aria-label={playing ? 'Pause radio' : 'Play radio'}
+                disabled={!hasTracks}
+                onClick={() => void toggle()}
+              >
+                {playing ? <IconPlayerPauseFilled size={25} /> : <IconPlayerPlayFilled size={25} />}
+              </ActionIcon>
+              <ActionIcon
+                className="radio-deck-button"
+                size={42}
+                variant="filled"
+                radius="xs"
+                aria-label="Stop radio"
+                disabled={!current}
+                onClick={pause}
+              >
+                <IconPlayerStopFilled size={18} />
+              </ActionIcon>
+              <ActionIcon
+                className="radio-deck-button"
+                size={42}
+                variant="filled"
+                radius="xs"
+                aria-label="Next track"
+                disabled={!hasTracks}
+                onClick={() => void playNext()}
+              >
+                <IconPlayerTrackNextFilled size={20} />
               </ActionIcon>
             </Group>
-          );
-        })}
-      </Stack>
+          </div>
+        </section>
+
+        <TapeStack
+          tracks={tracks}
+          current={current}
+          playing={playing}
+          onSelect={(track) => void (current?.id === track.id ? toggle() : play(track))}
+        />
+      </div>
     </Stack>
   );
 }
@@ -175,6 +147,72 @@ function SpeakerGrill({ side }: { side: 'left' | 'right' }) {
         <div className="radio-speaker-core" />
       </div>
     </div>
+  );
+}
+
+function TapeStack({
+  tracks,
+  current,
+  playing,
+  onSelect,
+}: {
+  tracks: Track[];
+  current: Track | null;
+  playing: boolean;
+  onSelect: (track: Track) => void;
+}) {
+  return (
+    <aside className="radio-tape-stack" aria-label="Cassette tape library">
+      <Text className="radio-tape-stack-title" size="xs" fw={900}>
+        Tape Library
+      </Text>
+      <Stack gap={8}>
+        {tracks.length === 0 && (
+          <div className="radio-tape-card is-empty">
+            <span className="radio-tape-spine" aria-hidden="true" />
+            <div className="radio-tape-label">
+              <Text component="span" size="sm" fw={800}>
+                Loading tapes
+              </Text>
+              <Text component="span" size="xs">Please stand by</Text>
+            </div>
+          </div>
+        )}
+
+        {tracks.map((track, index) => {
+          const isCurrent = current?.id === track.id;
+          return (
+            <button
+              key={track.id}
+              type="button"
+              className={isCurrent ? 'radio-tape-card is-current' : 'radio-tape-card'}
+              aria-label={isCurrent && playing ? `Pause ${track.title}` : `Play ${track.title}`}
+              aria-pressed={isCurrent}
+              onClick={() => onSelect(track)}
+            >
+              <span className="radio-tape-spine" aria-hidden="true">
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <span className="radio-tape-label">
+                <Text component="span" size="sm" fw={900} truncate>
+                  {track.title}
+                </Text>
+                <Text component="span" size="xs" truncate>
+                  {track.artist}
+                </Text>
+              </span>
+              <span className="radio-tape-reels" aria-hidden="true">
+                <span />
+                <span />
+              </span>
+              <span className="radio-tape-play-state" aria-hidden="true">
+                {isCurrent && playing ? <IconPlayerPauseFilled size={16} /> : <IconPlayerPlayFilled size={16} />}
+              </span>
+            </button>
+          );
+        })}
+      </Stack>
+    </aside>
   );
 }
 

@@ -29,11 +29,13 @@ export function GameScreen() {
   const isHumanTurn = game && human && game.turn.currentPlayerId === human.id;
 
   // Clear selection if the phase changes or the turn flips.
+  /* eslint-disable react-hooks/set-state-in-effect -- Phase/turn changes dismiss transient targeting UI. */
   useEffect(() => {
     selectFrom(null);
     setAttackTarget(null);
     setFortifyTarget(null);
   }, [game?.turn.phase, game?.turn.currentPlayerId, selectFrom]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // When a conquest fires, dismiss the AttackModal so the PostConquestModal
   // can take focus without stacking two dialogs on top of each other. Brief

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/refs -- @hello-pangea/dnd exposes render-time ref and drag props. */
 import { Card, Group, Checkbox, Text, Badge, ActionIcon, Stack } from '@mantine/core';
 import { IconGripVertical, IconPencil, IconTrash } from '@tabler/icons-react';
 import dayjs from 'dayjs';

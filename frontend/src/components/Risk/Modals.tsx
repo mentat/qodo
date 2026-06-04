@@ -127,7 +127,6 @@ const DIE_FACES = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 function Die({ value, accent }: { value: number; accent: string }) {
   return (
     <div
-      key={`${value}-${Math.random()}`}
       style={{
         width: 44, height: 44,
         borderRadius: 8,
@@ -151,10 +150,14 @@ export function PostConquestModal() {
   const resolve = useRiskStore((s) => s.resolvePostConquest);
   const pc = game?.turn.postConquestPending;
   const [n, setN] = useState<number>(0);
+  const postConquestKey = pc ? `${pc.from}:${pc.to}:${pc.minArmies}:${pc.maxArmies}` : '';
+  const postConquestArmies = pc ? Math.min(pc.maxArmies, Math.max(pc.minArmies, pc.minArmies)) : 0;
 
+  /* eslint-disable react-hooks/set-state-in-effect -- A new conquest resets the required move amount. */
   useEffect(() => {
-    if (pc) setN(Math.min(pc.maxArmies, Math.max(pc.minArmies, pc.minArmies)));
-  }, [pc?.from, pc?.to, pc?.minArmies, pc?.maxArmies]);
+    if (postConquestKey) setN(postConquestArmies);
+  }, [postConquestKey, postConquestArmies]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!game || !pc) return null;
   const fromName = territoryById(pc.from)?.name ?? pc.from;
@@ -206,9 +209,12 @@ export function FortifyModal({ from, to, onClose }: FortifyModalProps) {
   const fortify = useRiskStore((s) => s.fortify);
   const src = game?.board[from];
   const max = (src?.armies ?? 1) - 1;
-  const [n, setN] = useState(Math.max(1, max));
+  const initialFortifyArmies = Math.max(1, max);
+  const [n, setN] = useState(initialFortifyArmies);
 
-  useEffect(() => { setN(Math.max(1, max)); }, [max]);
+  /* eslint-disable react-hooks/set-state-in-effect -- Opening a different fortify route resets the slider amount. */
+  useEffect(() => { setN(initialFortifyArmies); }, [initialFortifyArmies]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!game || !src) return null;
   const fromName = territoryById(from)?.name ?? from;

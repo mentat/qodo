@@ -16,6 +16,17 @@ import { useForm } from '@mantine/form';
 import { IconBrandGoogle, IconAlertCircle } from '@tabler/icons-react';
 import { useAuth } from '../hooks/useAuth';
 
+function authErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) {
+    return error.message.replace('Firebase: ', '');
+  }
+  if (typeof error === 'object' && error && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message) return message.replace('Firebase: ', '');
+  }
+  return fallback;
+}
+
 export function LoginPage() {
   const { signIn, signUp, signInWithGoogle } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
@@ -39,8 +50,8 @@ export function LoginPage() {
       } else {
         await signUp(values.email, values.password);
       }
-    } catch (e: any) {
-      setError(e.message?.replace('Firebase: ', '') || 'Authentication failed');
+    } catch (e: unknown) {
+      setError(authErrorMessage(e, 'Authentication failed'));
     } finally {
       setLoading(false);
     }
@@ -50,8 +61,8 @@ export function LoginPage() {
     setError(null);
     try {
       await signInWithGoogle();
-    } catch (e: any) {
-      setError(e.message?.replace('Firebase: ', '') || 'Google sign-in failed');
+    } catch (e: unknown) {
+      setError(authErrorMessage(e, 'Google sign-in failed'));
     }
   };
 

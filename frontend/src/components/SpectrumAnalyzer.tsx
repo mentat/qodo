@@ -11,8 +11,11 @@ export function SpectrumAnalyzer({ thinking }: { thinking: boolean }) {
   // Mirror latest props/state into refs so the rAF loop (set up once) sees them.
   const thinkingRef = useRef(thinking);
   const playingRef = useRef(playing);
-  thinkingRef.current = thinking;
-  playingRef.current = playing;
+
+  useEffect(() => {
+    thinkingRef.current = thinking;
+    playingRef.current = playing;
+  }, [thinking, playing]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

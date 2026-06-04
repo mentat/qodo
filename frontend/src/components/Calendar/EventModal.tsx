@@ -33,6 +33,7 @@ export function EventModal({ opened, onClose, event, slot }: Props) {
   const [allDay, setAllDay] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- Opening a modal intentionally resets the editable draft. */
   useEffect(() => {
     if (!opened) return;
     const ad = event?.allDay ?? false;
@@ -45,6 +46,7 @@ export function EventModal({ opened, onClose, event, slot }: Props) {
     setStart(toPicker(s, ad));
     setEnd(toPicker(e, ad));
   }, [opened, event, slot]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const submit = async () => {
     if (!title.trim() || !start) return;

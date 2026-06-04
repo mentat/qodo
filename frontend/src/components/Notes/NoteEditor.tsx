@@ -16,11 +16,13 @@ export function NoteEditor({ note, onSave, onDelete }: Props) {
   const [tab, setTab] = useState<'write' | 'preview'>('write');
   const [busy, setBusy] = useState(false);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- Switching notes intentionally resets this local editor draft. */
   useEffect(() => {
     setTitle(note?.title ?? '');
     setBody(note?.body ?? '');
     setTab('write');
   }, [note]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const save = async () => {
     if (!title.trim() && !body.trim()) return;

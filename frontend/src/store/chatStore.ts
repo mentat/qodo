@@ -25,6 +25,15 @@ const NOTE_TOOLS = new Set(['create_note']);
 // Mail + calendar mutations surface automatically via the Firestore listeners,
 // so they need no explicit refresh here.
 
+function errorMessage(error: unknown, fallback = 'Something went wrong') {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'object' && error && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message) return message;
+  }
+  return fallback;
+}
+
 export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   sending: false,
@@ -41,8 +50,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       const msgs = await fetchHistory(50);
       set({ messages: msgs, loaded: true });
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: errorMessage(e) });
     } finally {
       set({ loading: false });
     }
@@ -92,9 +101,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (calls.some((c) => NOTE_TOOLS.has(c.name))) {
         void useNoteStore.getState().fetch();
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       set((s) => ({
-        error: e.message,
+        error: errorMessage(e),
         messages: s.messages.filter((m) => m.id !== optimistic.id),
       }));
     } finally {
@@ -106,8 +115,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       await clearHistory();
       set({ messages: [], lastToolCalls: [] });
-    } catch (e: any) {
-      set({ error: e.message });
+    } catch (e: unknown) {
+      set({ error: errorMessage(e) });
     }
   },
 }));

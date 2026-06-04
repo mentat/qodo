@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Box, Group, Button, Paper, Text, Stack, TextInput, SegmentedControl } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconPencilPlus, IconMail, IconSearch } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useMailStore, deriveThreads, filterThreads } from '../../store/mailStore';
+import { useContactStore } from '../../store/contactStore';
 import type { MailFilter } from '../../types/mail';
 import { ThreadList } from './ThreadList';
 import { ThreadView } from './ThreadView';
@@ -16,6 +17,8 @@ export function MailApp() {
   const selectThread = useMailStore((s) => s.selectThread);
   const send = useMailStore((s) => s.send);
   const toggleStar = useMailStore((s) => s.toggleStar);
+  const contacts = useContactStore((s) => s.contacts);
+  const fetchContacts = useContactStore((s) => s.fetch);
   const [composing, setComposing] = useState(false);
   const [sending, setSending] = useState(false);
   const [search, setSearch] = useState('');
@@ -28,6 +31,12 @@ export function MailApp() {
     () => threads.find((t) => t.threadId === activeThreadId) ?? null,
     [threads, activeThreadId],
   );
+
+  useEffect(() => {
+    void fetchContacts().catch((e) =>
+      notifications.show({ title: 'Contacts unavailable', message: (e as Error).message, color: 'red' }),
+    );
+  }, [fetchContacts]);
 
   const doSend = async (input: SendInput) => {
     setSending(true);
@@ -97,7 +106,13 @@ export function MailApp() {
       <Box style={{ flex: 1, minWidth: 0, height: '100%' }}>
         <Paper withBorder radius="md" p="md" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
           {composing ? (
-            <Composer mode="new" sending={sending} onSend={doSend} onCancel={() => setComposing(false)} />
+            <Composer
+              mode="new"
+              contacts={contacts}
+              sending={sending}
+              onSend={doSend}
+              onCancel={() => setComposing(false)}
+            />
           ) : activeThread ? (
             <>
               <ThreadView thread={activeThread} onStar={onStar} />

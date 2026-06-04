@@ -1,21 +1,66 @@
-import { useState } from 'react';
-import { Stack, Group, TextInput, Textarea, Button } from '@mantine/core';
+import { useMemo, useState } from 'react';
+import { Autocomplete, Button, Group, Stack, Text, Textarea, TextInput } from '@mantine/core';
 import { IconSend, IconX } from '@tabler/icons-react';
 import type { MailThread } from '../../types/mail';
 import type { SendInput } from '../../api/mail';
+import type { Contact } from '../../types/contact';
+
+interface RecipientOption {
+  value: string;
+  label: string;
+}
+
+interface RecipientData {
+  options: RecipientOption[];
+  byKey: Map<string, Contact>;
+}
 
 interface Props {
   mode: 'reply' | 'new';
   thread?: MailThread;
+  contacts?: Contact[];
   sending: boolean;
   onSend: (input: SendInput) => void;
   onCancel?: () => void;
 }
 
-export function Composer({ mode, thread, sending, onSend, onCancel }: Props) {
+function recipientLabel(contact: Contact) {
+  const email = contact.email.trim();
+  const name = contact.name.trim();
+  return name ? `${name} <${email}>` : email;
+}
+
+function recipientKey(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function buildRecipientData(contacts: Contact[]): RecipientData {
+  const seen = new Set<string>();
+  const byKey = new Map<string, Contact>();
+  const options: RecipientOption[] = [];
+
+  for (const contact of contacts) {
+    const email = contact.email.trim();
+    if (!email) continue;
+
+    const emailKey = recipientKey(email);
+    if (seen.has(emailKey)) continue;
+    seen.add(emailKey);
+
+    const label = recipientLabel(contact);
+    options.push({ value: email, label });
+    byKey.set(emailKey, contact);
+    byKey.set(recipientKey(label), contact);
+  }
+
+  return { options, byKey };
+}
+
+export function Composer({ mode, thread, contacts = [], sending, onSend, onCancel }: Props) {
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const recipients = useMemo(() => buildRecipientData(contacts), [contacts]);
 
   const submit = () => {
     if (!body.trim() || sending) return;
@@ -25,8 +70,16 @@ export function Composer({ mode, thread, sending, onSend, onCancel }: Props) {
       const subj = thread.subject.toLowerCase().startsWith('re:') ? thread.subject : `Re: ${thread.subject}`;
       onSend({ to: replyTo, subject: subj, body, threadId: thread.threadId, characterId: thread.characterId });
     } else {
-      if (!to.trim()) return;
-      onSend({ to, subject: subject || '(no subject)', body });
+      const recipient = recipients.byKey.get(recipientKey(to));
+      const recipientAddress = (recipient?.email ?? to).trim();
+      if (!recipientAddress) return;
+      onSend({
+        to: recipientAddress,
+        toName: recipient?.name || undefined,
+        subject: subject || '(no subject)',
+        body,
+        characterId: recipient?.characterId,
+      });
     }
     setBody('');
     setSubject('');
@@ -37,10 +90,28 @@ export function Composer({ mode, thread, sending, onSend, onCancel }: Props) {
     <Stack gap={6} pt="sm" style={{ borderTop: '1px solid var(--mantine-color-default-border)' }}>
       {mode === 'new' && (
         <>
-          <TextInput
-            placeholder="To (e.g. Capt. Nimbus or nimbus@synthwave.os)"
+          <Autocomplete
+            placeholder="To"
+            data={recipients.options}
             value={to}
-            onChange={(e) => setTo(e.currentTarget.value)}
+            onChange={setTo}
+            limit={8}
+            openOnFocus
+            renderOption={({ option }) => {
+              const contact = recipients.byKey.get(recipientKey(option.value));
+              return (
+                <Group gap={8} wrap="nowrap">
+                  <div style={{ minWidth: 0 }}>
+                    <Text size="sm" fw={600} truncate>
+                      {contact?.name || option.value}
+                    </Text>
+                    <Text size="xs" c="dimmed" truncate>
+                      {contact?.company ? `${option.value} · ${contact.company}` : option.value}
+                    </Text>
+                  </div>
+                </Group>
+              );
+            }}
           />
           <TextInput
             placeholder="Subject"
