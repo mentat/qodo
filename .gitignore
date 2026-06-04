@@ -1,5 +1,16 @@
-# Go
+# Go binaries — `go build` / `go run` in api/ drops a binary named after the
+# module's last path segment (the module is github.com/mentat/qodo/api → "api").
+# GitHub flags >50 MB blobs as a warning and rejects >100 MB; a stripped Go
+# binary with all transitive deps is typically 40-80 MB, so these MUST be
+# ignored or they'll bloat the repo + trip GH's large-file gate.
+api/api
 api/server
+# Sub-commands under api/cmd/<name>/ also produce a binary named <name> when built locally.
+api/cmd/*/[!.]*
+!api/cmd/*/*.go
+# Catch-all for compiled artifacts that slip through.
+api/**/*.exe
+api/**/*.test
 
 # Node
 frontend/node_modules/

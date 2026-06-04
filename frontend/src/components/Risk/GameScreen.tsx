@@ -35,6 +35,16 @@ export function GameScreen() {
     setFortifyTarget(null);
   }, [game?.turn.phase, game?.turn.currentPlayerId, selectFrom]);
 
+  // When a conquest fires, dismiss the AttackModal so the PostConquestModal
+  // can take focus without stacking two dialogs on top of each other. Brief
+  // delay so the dice-result animation is visible first.
+  useEffect(() => {
+    if (game?.turn.postConquestPending && attackTarget) {
+      const id = setTimeout(() => setAttackTarget(null), 900);
+      return () => clearTimeout(id);
+    }
+  }, [game?.turn.postConquestPending, attackTarget]);
+
   if (!game || !human) return null;
 
   const onTerritoryClick = async (t: TerritoryID) => {

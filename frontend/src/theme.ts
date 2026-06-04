@@ -66,6 +66,22 @@ const hotYellow: MantineColorsTuple = [
   '#332e00',
 ];
 
+// 6th-player palette — pale arctic cyan, neon enough to read on the dark
+// globe while staying clearly distinct from electricBlue and neonGreen.
+// Used by risk.PlayerColors and any future feature that wants a 6th tint.
+const iceCyan: MantineColorsTuple = [
+  '#e6ffff',
+  '#b3ffff',
+  '#80ffff',
+  '#4dffff',
+  '#1affff',
+  '#00e0e0',
+  '#00b3b3',
+  '#008080',
+  '#005959',
+  '#002b2b',
+];
+
 export const theme = createTheme({
   primaryColor: 'synthPurple',
   // autoContrast flips button/badge text to black or white based on the
@@ -79,6 +95,7 @@ export const theme = createTheme({
     synthPurple,
     neonGreen,
     hotYellow,
+    iceCyan,
   },
   fontFamily: '"Inter", "Segoe UI", system-ui, -apple-system, sans-serif',
   headings: {

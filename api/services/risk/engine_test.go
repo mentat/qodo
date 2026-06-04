@@ -329,6 +329,103 @@ func TestElimination_TransfersCards(t *testing.T) {
 	}
 }
 
+// ─── Setup phase auto-advancement ──────────────────────────────────────────
+
+// TestSetup_AutoPlacesAIAndNeutral verifies that when the human places one
+// army during setup, the engine auto-progresses through every non-human
+// player so control returns to the human (or setup ends). Without this, the
+// game deadlocks at the first AI's setup turn — the user clicks a tile but
+// the engine rejects because the current player is AI.
+func TestSetup_AutoPlacesAIAndNeutral(t *testing.T) {
+	r := fixedRand(101, 202)
+	slots := []PlayerSlot{
+		{ID: "human", Name: "You", Kind: KindHuman, Color: "neonPink"},
+		{ID: "ai-1", Name: "A", Kind: KindAI, Color: "electricBlue", GeneralID: "maxine-voltage"},
+		{ID: "ai-2", Name: "B", Kind: KindAI, Color: "neonGreen", GeneralID: "general-static"},
+	}
+	state, err := NewGame(slots, Settings{Difficulty: DifficultyNormal, PlayerCount: 3}, r)
+	if err != nil {
+		t.Fatalf("NewGame: %v", err)
+	}
+	// Pick a territory the human owns and place 1 army.
+	var humanTerr TerritoryID
+	for tid, ts := range state.Board {
+		if ts.OwnerID == "human" {
+			humanTerr = tid
+			break
+		}
+	}
+	state, err = PlaceInitial(state, "human", humanTerr, r)
+	if err != nil {
+		t.Fatalf("PlaceInitial: %v", err)
+	}
+	// Either setup is done, or it's the human's turn again. If we're still in
+	// setup with the current player being an AI, the engine failed to auto-advance.
+	if state.Status == StatusSetup && state.Turn.CurrentPlayerID != "human" {
+		t.Fatalf("setup did not auto-advance: current player is %s (kind=%s), human is stuck",
+			state.Turn.CurrentPlayerID, playerByID(state, state.Turn.CurrentPlayerID).Kind)
+	}
+}
+
+// TestSetup_TwoPlayerNeutralPlacement: the existing 2-player auto-place loop
+// must still work — the neutral places its 40 armies alongside the human and
+// the lone AI.
+func TestSetup_TwoPlayerNeutralPlacement(t *testing.T) {
+	r := fixedRand(303, 404)
+	slots := []PlayerSlot{
+		{ID: "human", Name: "You", Kind: KindHuman, Color: "neonPink"},
+		{ID: "ai-1", Name: "A", Kind: KindAI, Color: "electricBlue"},
+		{ID: "neutral", Name: "Neutral", Kind: KindNeutral, Color: "synthPurple"},
+	}
+	state, err := NewGame(slots, Settings{Difficulty: DifficultyNormal, PlayerCount: 2}, r)
+	if err != nil {
+		t.Fatalf("NewGame: %v", err)
+	}
+	// Walk through human-driven placements until setup ends.
+	for state.Status == StatusSetup {
+		if state.Turn.CurrentPlayerID != "human" {
+			t.Fatalf("setup deadlocked on %s", state.Turn.CurrentPlayerID)
+		}
+		var pick TerritoryID
+		for tid, ts := range state.Board {
+			if ts.OwnerID == "human" {
+				pick = tid
+				break
+			}
+		}
+		state, err = PlaceInitial(state, "human", pick, r)
+		if err != nil {
+			t.Fatalf("PlaceInitial: %v", err)
+		}
+	}
+	// Verify final army counts: total should match starting × 3 players.
+	totalArmies := 0
+	for _, ts := range state.Board {
+		totalArmies += ts.Armies
+	}
+	want := 40 * 3 // 2-player variant: 40 armies × 2 humans + 40 neutral
+	if totalArmies != want {
+		t.Errorf("setup armies: want %d, got %d", want, totalArmies)
+	}
+}
+
+// TestNextLivingPlayer_SkipsNeutralAndEliminated: the neutral never gets a
+// main turn (rule), and eliminated players are skipped.
+func TestNextLivingPlayer_SkipsNeutralAndEliminated(t *testing.T) {
+	state := State{
+		Players: []Player{
+			{ID: "human", Kind: KindHuman, Alive: true},
+			{ID: "ai-1", Kind: KindAI, Alive: true, Eliminated: true},
+			{ID: "neutral", Kind: KindNeutral, Alive: true},
+			{ID: "ai-2", Kind: KindAI, Alive: true},
+		},
+	}
+	got := nextLivingPlayer(state, "human")
+	if got != "ai-2" {
+		t.Errorf("nextLivingPlayer should skip eliminated ai-1 and neutral, want ai-2, got %s", got)
+	}
+}
+
 // ─── Post-conquest edge cases ──────────────────────────────────────────────
 
 // TestPostConquest_MinClampedToMax exercises the case where the attacker

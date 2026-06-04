@@ -16,5 +16,17 @@ service cloud.firestore {
     match /events/{eventId} {
       allow read: if request.auth != null && request.auth.uid == resource.data.userId;
     }
+
+    // Risk: one active game per user, keyed by uid (riskGames/{uid}) plus a
+    // per-user stats aggregate (riskStats/{uid}). Both are read live by the
+    // client via onSnapshot — the user can only read their own doc. All
+    // writes go through the Go API (Admin SDK bypasses these rules), so the
+    // client never writes here directly.
+    match /riskGames/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+    }
+    match /riskStats/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+    }
   }
 }

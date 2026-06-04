@@ -189,26 +189,25 @@ func PlaceInitial(s State, pid PlayerID, terr TerritoryID, rng *rand.Rand) (Stat
 	if IsSetupComplete(s) {
 		s.Status = StatusPlaying
 		s = beginTurn(s, s.Players[0].ID, rng)
+		return s, nil
 	}
-	// Auto-place for the neutral player if it's their turn (2-player variant).
+	// Auto-place for AI and neutral players until it's the human's turn again,
+	// or setup ends. Without this loop the game deadlocks: the user clicks a
+	// tile but the engine refuses because the current player is AI/neutral.
 	for s.Status == StatusSetup {
 		cur := playerByID(s, s.Turn.CurrentPlayerID)
-		if cur == nil || cur.Kind != KindNeutral {
+		if cur == nil || cur.Kind == KindHuman {
 			break
 		}
 		if s.SetupRemaining[cur.ID] <= 0 {
 			s = advanceSetupTurn(s)
 			continue
 		}
-		// Pick a random neutral-owned territory.
-		neutralTerrs := []TerritoryID{}
-		for t, ts := range s.Board {
-			if ts.OwnerID == cur.ID {
-				neutralTerrs = append(neutralTerrs, t)
-			}
+		pick := pickSetupTerritory(s, cur.ID, rng)
+		if pick == "" {
+			// Defensive — shouldn't happen because the player owns territories.
+			break
 		}
-		sort.Slice(neutralTerrs, func(i, j int) bool { return neutralTerrs[i] < neutralTerrs[j] })
-		pick := neutralTerrs[rng.IntN(len(neutralTerrs))]
 		ts := s.Board[pick]
 		ts.Armies++
 		s.Board[pick] = ts
@@ -220,9 +219,39 @@ func PlaceInitial(s State, pid PlayerID, terr TerritoryID, rng *rand.Rand) (Stat
 		if IsSetupComplete(s) {
 			s.Status = StatusPlaying
 			s = beginTurn(s, s.Players[0].ID, rng)
+			return s, nil
 		}
 	}
 	return s, nil
+}
+
+// pickSetupTerritory returns one of pid's owned territories during the setup
+// phase. AI players bias toward border territories (where they can reinforce
+// defensively); neutral picks any owned tile deterministically.
+func pickSetupTerritory(s State, pid PlayerID, rng *rand.Rand) TerritoryID {
+	owned := []TerritoryID{}
+	borders := []TerritoryID{}
+	for t, ts := range s.Board {
+		if ts.OwnerID != pid {
+			continue
+		}
+		owned = append(owned, t)
+		for _, n := range Neighbors(t) {
+			if s.Board[n].OwnerID != pid {
+				borders = append(borders, t)
+				break
+			}
+		}
+	}
+	if len(owned) == 0 {
+		return ""
+	}
+	sort.Slice(owned, func(i, j int) bool { return owned[i] < owned[j] })
+	sort.Slice(borders, func(i, j int) bool { return borders[i] < borders[j] })
+	if p := playerByID(s, pid); p != nil && p.Kind == KindAI && len(borders) > 0 {
+		return borders[rng.IntN(len(borders))]
+	}
+	return owned[rng.IntN(len(owned))]
 }
 
 // advanceSetupTurn rotates to the next player with armies still to place.
@@ -547,17 +576,21 @@ func drawCard(s State, pid PlayerID) State {
 	})
 }
 
-// nextLivingPlayer returns the next player ID after pid that is still alive.
-// Skips eliminated players. Returns "" if everyone but pid is gone (which
-// should have triggered a win already).
+// nextLivingPlayer returns the next player ID after pid that is still alive
+// AND takes main turns. Skips eliminated players AND the neutral (which only
+// defends in the 2-player variant — they never reinforce, attack, or
+// fortify). Returns "" if everyone but pid is gone (which should have
+// triggered a win already).
 func nextLivingPlayer(s State, pid PlayerID) PlayerID {
 	n := len(s.Players)
 	idx := indexOfPlayer(s, pid)
 	for i := 1; i <= n; i++ {
 		j := (idx + i) % n
-		if !s.Players[j].Eliminated {
-			return s.Players[j].ID
+		p := s.Players[j]
+		if p.Eliminated || p.Kind == KindNeutral {
+			continue
 		}
+		return p.ID
 	}
 	return ""
 }
