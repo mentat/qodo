@@ -146,6 +146,62 @@
   .marvin-robot, .marvin-robot * { animation: none !important; }
 }
 
+/* ── Risk animated AI general avatars ───────────────────────────────────── */
+.risk-avatar-frame {
+  width: var(--risk-avatar-size);
+  height: var(--risk-avatar-size);
+  min-width: var(--risk-avatar-size);
+  display: inline-grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--risk-avatar-accent) 78%, #ffffff 12%);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 50% 48%, color-mix(in srgb, var(--risk-avatar-accent-soft) 70%, transparent) 0 34%, transparent 56%),
+    #080912;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 16px color-mix(in srgb, var(--risk-avatar-accent) 45%, transparent);
+  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+  flex: 0 0 auto;
+}
+
+.risk-avatar-frame:hover,
+.risk-avatar-frame:focus-visible {
+  transform: translateY(-1px);
+  border-color: var(--risk-avatar-accent);
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 20px color-mix(in srgb, var(--risk-avatar-accent) 60%, transparent);
+}
+
+.risk-avatar-frame.is-active {
+  border-color: var(--risk-avatar-accent);
+}
+
+.risk-avatar-frame.is-thinking {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 24px color-mix(in srgb, var(--risk-avatar-accent) 72%, transparent);
+}
+
+.risk-avatar-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.risk-avatar-fallback {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  font-size: calc(var(--risk-avatar-size) * 0.48);
+  line-height: 1;
+}
+
 /* ── Risk dice roll: short tumble before settling on the result ─────────── */
 @keyframes riskDieRoll {
   0%   { transform: rotate(-20deg) scale(0.85); opacity: 0; }
@@ -636,6 +692,15 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .risk-avatar-frame {
+    transition: none;
+  }
+
+  .risk-avatar-frame:hover,
+  .risk-avatar-frame:focus-visible {
+    transform: none;
+  }
+
   .radio-boombox.is-playing .radio-tape-wheel,
   .radio-cassette.is-playing .radio-tape-wheel,
   .radio-deck-button:active {

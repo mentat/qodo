@@ -6,6 +6,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { useRiskStore } from '../../store/riskStore';
 import { GENERALS, type General } from './cast';
+import { RiskAvatarFrame } from './RiskAvatar';
 import type { Difficulty, GameState, Stats } from '../../types/risk';
 
 const DIFFICULTIES: { value: Difficulty; label: string; blurb: string }[] = [
@@ -111,7 +112,7 @@ function GeneralCard({ g }: { g: General }) {
       background: 'transparent',
     }}>
       <Group gap="sm" wrap="nowrap" align="flex-start">
-        <Text size="xl" lh={1}>{g.emoji}</Text>
+        <RiskAvatarFrame general={g} size={56} />
         <div>
           <Text fw={700} size="sm">{g.name}</Text>
           <Text size="xs" c="dimmed">{g.title}</Text>

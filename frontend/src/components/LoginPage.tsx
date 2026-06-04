@@ -62,7 +62,7 @@ export function LoginPage() {
           <img src="/logo.svg" alt="Qodo" height={40} />
         </Center>
         <Title ta="center" mb="md" order={2}>
-          TODO
+          Synthwave OS
         </Title>
         <Text c="dimmed" size="sm" ta="center" mb="xl">
           {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}

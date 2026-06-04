@@ -5,12 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "generate:risk-avatars": "bun ./scripts/generate-risk-avatars.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
     "@hello-pangea/dnd": "18.0.1",
+    "@lottiefiles/dotlottie-react": "0.19.4",
     "@mantine/core": "^9.3.0",
     "@mantine/dates": "^9.3.0",
     "@mantine/form": "^9.3.0",
@@ -32,6 +34,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@dotlottie/dotlottie-js": "1.6.3",
     "@eslint/js": "^9.39.4",
     "@happy-dom/global-registrator": "^20.9.0",
     "@testing-library/dom": "^10.4.1",

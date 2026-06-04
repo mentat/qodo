@@ -7,6 +7,8 @@ import {
 import { useRiskStore, currentPlayer, humanPlayer, ownedCount, totalArmies } from '../../store/riskStore';
 import { useUIStore } from '../../store/uiStore';
 import { generalById } from './cast';
+import { RiskAvatarFrame } from './RiskAvatar';
+import { avatarEventForPlayer } from './RiskAvatarEvents';
 import { territoryById, CONTINENTS } from './board';
 import type { GameState, RiskEvent } from '../../types/risk';
 
@@ -26,6 +28,8 @@ export function TurnPanel({ onSurrender, onRestart }: Props) {
   const cur = currentPlayer(game);
   const isHumanTurn = cur?.kind === 'human';
   const gen = generalById(cur?.generalId);
+  const isAiThinking = !isHumanTurn && game.status === 'playing';
+  const avatarEvent = gen && cur ? avatarEventForPlayer(game, cur.id) : null;
   const phaseInfo = phaseLabel(game);
 
   return (
@@ -53,15 +57,31 @@ export function TurnPanel({ onSurrender, onRestart }: Props) {
               </Tooltip>
             </Group>
           </Group>
-          <Group gap="xs" mt={4}>
-            <ColorChip color={cur?.color ?? 'gray'} />
-            <Title order={4} c={cur?.kind === 'human' ? undefined : `${cur?.color}.5`}>
-              {cur?.name ?? '...'}
-            </Title>
+          <Group gap="xs" mt={6} align="center" wrap="nowrap">
+            {gen && avatarEvent ? (
+              <RiskAvatarFrame
+                general={gen}
+                size={54}
+                active={cur?.id === game.turn.currentPlayerId}
+                thinking={isAiThinking}
+                mood={avatarEvent.mood}
+                moodKey={avatarEvent.key}
+              />
+            ) : (
+              <ColorChip color={cur?.color ?? 'gray'} />
+            )}
+            <div style={{ minWidth: 0 }}>
+              <Group gap={6} wrap="nowrap">
+                <ColorChip color={cur?.color ?? 'gray'} />
+                <Title order={4} c={cur?.kind === 'human' ? undefined : `${cur?.color}.5`} lineClamp={2}>
+                  {cur?.name ?? '...'}
+                </Title>
+              </Group>
+              {gen && (
+                <Text size="xs" c="dimmed" mt={2}>{gen.title}</Text>
+              )}
+            </div>
           </Group>
-          {gen && (
-            <Text size="xs" c="dimmed" mt={2}>{gen.emoji} {gen.title}</Text>
-          )}
         </div>
 
         <div>
