@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"cloud.google.com/go/firestore"
 	"google.golang.org/grpc/codes"
@@ -45,21 +46,176 @@ func (p *Persistence) LoadGame(ctx context.Context, userID string) (State, error
 		}
 		return State{}, fmt.Errorf("load risk game: %w", err)
 	}
-	var s State
-	if err := doc.DataTo(&s); err != nil {
+	var fs firestoreState
+	if err := doc.DataTo(&fs); err != nil {
 		return State{}, fmt.Errorf("decode risk game: %w", err)
 	}
-	return s, nil
+	return fs.toState(), nil
 }
 
 // SaveGame writes the game state to riskGames/{userID}. The doc is overwritten
 // in full — Risk turns mutate broad swaths of the state, so a Set is simpler
 // and safer than an Update with field paths.
+//
+// Important: the Firestore Go client cannot serialize maps whose keys are
+// string-aliased types like TerritoryID / PlayerID — it does a literal
+// `.(string)` type assertion that panics with "is risk.TerritoryID, not
+// string". We sidestep it by converting to a firestoreState mirror whose
+// maps have plain string keys before persisting.
 func (p *Persistence) SaveGame(ctx context.Context, userID string, s State) error {
-	if _, err := p.fs.Collection(p.gamesCol).Doc(userID).Set(ctx, s); err != nil {
+	if _, err := p.fs.Collection(p.gamesCol).Doc(userID).Set(ctx, fromState(s)); err != nil {
 		return fmt.Errorf("save risk game: %w", err)
 	}
 	return nil
+}
+
+// firestoreState is a serialization-only mirror of State. It exists solely
+// because Firestore's Go client rejects string-alias map keys.
+type firestoreState struct {
+	GameID         string                    `firestore:"gameId"`
+	Status         Status                    `firestore:"status"`
+	CreatedAt      interface{}               `firestore:"createdAt"`
+	StartedAt      interface{}               `firestore:"startedAt"`
+	EndedAt        interface{}               `firestore:"endedAt,omitempty"`
+	Settings       Settings                  `firestore:"settings"`
+	Players        []Player                  `firestore:"players"`
+	Board          map[string]TerritoryState `firestore:"board"`
+	Turn           Turn                      `firestore:"turn"`
+	Events         []firestoreEvent          `firestore:"events"`
+	Deck           []Card                    `firestore:"deck"`
+	SetupRemaining map[string]int            `firestore:"setupRemaining"`
+	LastEventSeq   int                       `firestore:"lastEventSeq"`
+}
+
+// firestoreEvent mirrors Event but with the payload's TerritoryID/PlayerID
+// alias values converted to plain strings (firestore's map-value path is fine
+// with alias-typed values, but doc snapshots round-trip cleaner with strings).
+type firestoreEvent struct {
+	Seq      int                    `firestore:"seq"`
+	TS       interface{}            `firestore:"ts"`
+	PlayerID string                 `firestore:"playerId"`
+	Kind     string                 `firestore:"kind"`
+	Payload  map[string]interface{} `firestore:"payload"`
+}
+
+func fromState(s State) firestoreState {
+	out := firestoreState{
+		GameID:       s.GameID,
+		Status:       s.Status,
+		CreatedAt:    s.CreatedAt,
+		StartedAt:    s.StartedAt,
+		Settings:     s.Settings,
+		Players:      s.Players,
+		Turn:         s.Turn,
+		Deck:         s.Deck,
+		LastEventSeq: s.LastEventSeq,
+		Board:        make(map[string]TerritoryState, len(s.Board)),
+		SetupRemaining: make(map[string]int, len(s.SetupRemaining)),
+		Events:       make([]firestoreEvent, len(s.Events)),
+	}
+	if s.EndedAt != nil {
+		out.EndedAt = *s.EndedAt
+	}
+	for k, v := range s.Board {
+		out.Board[string(k)] = v
+	}
+	for k, v := range s.SetupRemaining {
+		out.SetupRemaining[string(k)] = v
+	}
+	for i, e := range s.Events {
+		out.Events[i] = firestoreEvent{
+			Seq:      e.Seq,
+			TS:       e.TS,
+			PlayerID: string(e.PlayerID),
+			Kind:     e.Kind,
+			Payload:  sanitizePayload(e.Payload),
+		}
+	}
+	return out
+}
+
+// sanitizePayload returns a new map where any TerritoryID/PlayerID alias
+// values are converted to plain strings. This isn't strictly required for the
+// save path (firestore can store alias-typed values), but it keeps the
+// round-trip stable: Firestore reads back map[string]interface{} with values
+// that are plain strings, not the original alias types.
+func sanitizePayload(in map[string]interface{}) map[string]interface{} {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]interface{}, len(in))
+	for k, v := range in {
+		switch tv := v.(type) {
+		case TerritoryID:
+			out[k] = string(tv)
+		case PlayerID:
+			out[k] = string(tv)
+		case []TerritoryID:
+			strs := make([]string, len(tv))
+			for i, x := range tv {
+				strs[i] = string(x)
+			}
+			out[k] = strs
+		default:
+			out[k] = v
+		}
+	}
+	return out
+}
+
+func (fs firestoreState) toState() State {
+	out := State{
+		GameID:       fs.GameID,
+		Status:       fs.Status,
+		Settings:     fs.Settings,
+		Players:      fs.Players,
+		Turn:         fs.Turn,
+		Deck:         fs.Deck,
+		LastEventSeq: fs.LastEventSeq,
+		Board:        make(map[TerritoryID]TerritoryState, len(fs.Board)),
+		SetupRemaining: make(map[PlayerID]int, len(fs.SetupRemaining)),
+		Events:       make([]Event, len(fs.Events)),
+	}
+	out.CreatedAt = asTime(fs.CreatedAt)
+	out.StartedAt = asTime(fs.StartedAt)
+	if fs.EndedAt != nil {
+		t := asTime(fs.EndedAt)
+		if !t.IsZero() {
+			out.EndedAt = &t
+		}
+	}
+	for k, v := range fs.Board {
+		out.Board[TerritoryID(k)] = v
+	}
+	for k, v := range fs.SetupRemaining {
+		out.SetupRemaining[PlayerID(k)] = v
+	}
+	for i, e := range fs.Events {
+		out.Events[i] = Event{
+			Seq:      e.Seq,
+			TS:       asTime(e.TS),
+			PlayerID: PlayerID(e.PlayerID),
+			Kind:     e.Kind,
+			Payload:  e.Payload,
+		}
+	}
+	return out
+}
+
+// asTime coerces a Firestore-decoded interface{} into a time.Time. The
+// Firestore Go client decodes Timestamp fields directly into time.Time when
+// the destination type is time.Time, but when decoding into interface{} it
+// hands back time.Time too. We accept both for robustness.
+func asTime(v interface{}) time.Time {
+	switch t := v.(type) {
+	case time.Time:
+		return t
+	case *time.Time:
+		if t != nil {
+			return *t
+		}
+	}
+	return time.Time{}
 }
 
 // DeleteGame removes the user's active game (e.g. on Restart / Surrender ack).

@@ -12,6 +12,70 @@ func fixedRand(a, b uint64) *rand.Rand {
 	return rand.New(rand.NewPCG(a, b))
 }
 
+// ─── Firestore serialization round-trip ────────────────────────────────────
+
+// TestFirestoreState_RoundTrip locks in the State ↔ firestoreState mapping.
+// This is the regression test for a panic the Firestore Go client raises
+// when asked to serialize a map whose key is a string-alias type
+// (`interface {} is risk.TerritoryID, not string`). The persistence layer
+// converts to a string-keyed mirror; this test confirms nothing is lost.
+func TestFirestoreState_RoundTrip(t *testing.T) {
+	original := State{
+		GameID: "g-1",
+		Status: StatusPlaying,
+		Settings: Settings{Difficulty: DifficultyNormal, PlayerCount: 3},
+		Players: []Player{
+			{ID: "human", Kind: KindHuman, Cards: []Card{{ID: "c1", Type: CardInfantry, TerritoryID: TerrAlaska}}},
+			{ID: "ai-1", Kind: KindAI, Eliminated: true},
+		},
+		Board: map[TerritoryID]TerritoryState{
+			TerrAlaska:    {OwnerID: "human", Armies: 5},
+			TerrKamchatka: {OwnerID: "ai-1", Armies: 3},
+		},
+		SetupRemaining: map[PlayerID]int{"human": 0, "ai-1": 0},
+		Turn: Turn{
+			CurrentPlayerID: "human", TurnNumber: 7, Phase: PhaseAttack,
+			ArmiesToPlace: 0, ConqueredThisTurn: true,
+		},
+		Events: []Event{
+			{Seq: 1, PlayerID: "human", Kind: "attack", Payload: map[string]interface{}{
+				"from": TerrAlaska, "to": TerrKamchatka, "attackerDice": []int{6, 5, 4},
+			}},
+		},
+		LastEventSeq: 1,
+	}
+	fs := fromState(original)
+
+	// Map keys are plain string.
+	for k := range fs.Board {
+		if _, isAlias := any(k).(TerritoryID); isAlias {
+			t.Errorf("fs.Board key is TerritoryID alias, want plain string")
+		}
+	}
+	// Payload alias values are converted to strings.
+	if v, ok := fs.Events[0].Payload["from"].(string); !ok || v != string(TerrAlaska) {
+		t.Errorf("payload 'from' should be string, got %T (%v)", fs.Events[0].Payload["from"], fs.Events[0].Payload["from"])
+	}
+
+	// Round-trip back.
+	restored := fs.toState()
+	if restored.GameID != original.GameID || restored.Status != original.Status {
+		t.Errorf("top-level fields lost: %+v", restored)
+	}
+	if restored.Board[TerrAlaska].Armies != 5 || restored.Board[TerrKamchatka].OwnerID != "ai-1" {
+		t.Errorf("board lost: %+v", restored.Board)
+	}
+	if restored.SetupRemaining[PlayerID("human")] != 0 {
+		t.Errorf("setupRemaining lost: %+v", restored.SetupRemaining)
+	}
+	if len(restored.Events) != 1 || restored.Events[0].Kind != "attack" {
+		t.Errorf("events lost: %+v", restored.Events)
+	}
+	if !restored.Players[1].Eliminated {
+		t.Errorf("eliminated flag lost")
+	}
+}
+
 // ─── Board sanity ──────────────────────────────────────────────────────────
 
 func TestBoard_FortyTwoTerritoriesSixContinents(t *testing.T) {

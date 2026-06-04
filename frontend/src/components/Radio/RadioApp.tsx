@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { Stack, Group, Text, ActionIcon, Paper, Title } from '@mantine/core';
 import { IconPlayerPlayFilled, IconPlayerPauseFilled } from '@tabler/icons-react';
 import { useRadioStore } from '../../store/radioStore';
-import { getAudioElement } from '../../audio/audioEngine';
 import { SpectrumAnalyzer } from '../SpectrumAnalyzer';
 
 export function RadioApp() {
@@ -12,26 +11,13 @@ export function RadioApp() {
   const load = useRadioStore((s) => s.load);
   const play = useRadioStore((s) => s.play);
   const toggle = useRadioStore((s) => s.toggle);
-  const setPlaying = useRadioStore((s) => s.setPlaying);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  // Keep the store's playing flag in sync with the underlying <audio> element.
-  useEffect(() => {
-    const el = getAudioElement();
-    const onPlay = () => setPlaying(true);
-    const onPause = () => setPlaying(false);
-    el.addEventListener('play', onPlay);
-    el.addEventListener('pause', onPause);
-    el.addEventListener('ended', onPause);
-    return () => {
-      el.removeEventListener('play', onPlay);
-      el.removeEventListener('pause', onPause);
-      el.removeEventListener('ended', onPause);
-    };
-  }, [setPlaying]);
+  // Audio-element <-> store sync lives in App.tsx (one global subscription),
+  // so the header widget stays accurate even when this page isn't mounted.
 
   return (
     <Stack maw={680} mx="auto">

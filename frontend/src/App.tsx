@@ -19,6 +19,8 @@ import { useUIStore } from './store/uiStore';
 import { useTodoStore } from './store/todoStore';
 import { useMailStore } from './store/mailStore';
 import { useEventStore } from './store/eventStore';
+import { useRadioStore } from './store/radioStore';
+import { getAudioElement } from './audio/audioEngine';
 import { seedDemo, resetDemo } from './api/demo';
 
 const TITLES: Record<string, string> = {
@@ -58,6 +60,24 @@ export default function App() {
       unsubscribeEvents();
     };
   }, [user, fetchTodos, subscribeMail, unsubscribeMail, subscribeEvents, unsubscribeEvents]);
+
+  // Keep the radio store's `playing` flag in sync with the shared <audio>
+  // element from anywhere in the app. Lifted out of RadioApp so the header
+  // widget stays accurate when a track ends naturally on a non-radio route.
+  useEffect(() => {
+    const el = getAudioElement();
+    const setPlaying = useRadioStore.getState().setPlaying;
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+    el.addEventListener('play', onPlay);
+    el.addEventListener('pause', onPause);
+    el.addEventListener('ended', onPause);
+    return () => {
+      el.removeEventListener('play', onPlay);
+      el.removeEventListener('pause', onPause);
+      el.removeEventListener('ended', onPause);
+    };
+  }, []);
 
   const handleReset = async () => {
     try {

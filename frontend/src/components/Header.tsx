@@ -1,6 +1,7 @@
 import { Group, Title, ActionIcon, Menu, Avatar, useMantineColorScheme } from '@mantine/core';
-import { IconSun, IconMoon, IconLogout, IconRobotFace, IconRefresh } from '@tabler/icons-react';
+import { IconSun, IconMoon, IconLogout, IconRobot, IconRefresh } from '@tabler/icons-react';
 import type { User } from 'firebase/auth';
+import { RadioWidget } from './Radio/RadioWidget';
 
 interface HeaderProps {
   user: User;
@@ -31,8 +32,10 @@ export function Header({ user, title, onSignOut, onOpenChat, onResetDemo }: Head
           aria-label="Talk to Marvin"
           title="Talk to Marvin"
         >
-          <IconRobotFace size={20} />
+          <IconRobot size={20} />
         </ActionIcon>
+
+        <RadioWidget />
 
         <ActionIcon
           variant="default"
