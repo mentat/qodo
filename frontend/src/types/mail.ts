@@ -1,3 +1,9 @@
+export interface Attachment {
+  name: string;
+  size: number; // bytes
+  contentType: string;
+}
+
 export interface Email {
   id: string;
   userId: string;
@@ -5,10 +11,14 @@ export interface Email {
   from: string;
   fromName: string;
   to: string;
+  cc?: string[];
   subject: string;
   body: string;
+  signature?: string;
+  attachments?: Attachment[];
   direction: 'inbound' | 'outbound';
   read: boolean;
+  starred: boolean;
   characterId?: string;
   createdAt: string;
 }
@@ -22,5 +32,10 @@ export interface MailThread {
   lastMessageAt: string;
   snippet: string;
   unread: number;
+  starred: boolean;
+  hasAttachment: boolean;
   messages: Email[];
 }
+
+// MailFilter drives the inbox quick-filter chips.
+export type MailFilter = 'all' | 'unread' | 'starred' | 'attachments';

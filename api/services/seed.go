@@ -76,11 +76,18 @@ func (s *SeedService) plant(ctx context.Context, userID string) error {
 			continue
 		}
 		created := now.Add(-time.Duration(e.AgeHours * float64(time.Hour)))
+		atts := make([]Attachment, 0, len(e.Attachments))
+		for _, a := range e.Attachments {
+			atts = append(atts, Attachment{Name: a.Name, Size: a.Size, ContentType: a.ContentType})
+		}
 		if _, err := s.emails.CreateInbound(ctx, userID, InboundInput{
 			From:        ch.Email,
 			FromName:    ch.Name,
+			Cc:          e.Cc,
 			Subject:     e.Subject,
 			Body:        e.Body,
+			Signature:   ch.Signature,
+			Attachments: atts,
 			CharacterID: ch.ID,
 			CreatedAt:   created,
 		}); err != nil {

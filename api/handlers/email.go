@@ -128,6 +128,26 @@ func (h *EmailHandler) MarkRead(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, e)
 }
 
+// Star sets/clears the star flag. Body: { "starred": bool }.
+func (h *EmailHandler) Star(w http.ResponseWriter, r *http.Request) {
+	uid := middleware.GetUserID(r.Context())
+	id := chi.URLParam(r, "id")
+	var req struct {
+		Starred bool `json:"starred"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	e, err := h.svc.SetStarred(r.Context(), uid, id, req.Starred)
+	if err != nil {
+		s, m := statusFor(err)
+		writeError(w, s, m)
+		return
+	}
+	writeJSON(w, http.StatusOK, e)
+}
+
 // Delete removes an email.
 func (h *EmailHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	uid := middleware.GetUserID(r.Context())

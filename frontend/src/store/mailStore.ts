@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { collection, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import type { Email, MailThread } from '../types/mail';
+import type { Email, MailThread, MailFilter } from '../types/mail';
 import * as api from '../api/mail';
 
 function toISO(v: unknown): string {
@@ -21,10 +21,20 @@ function normalize(id: string, d: Record<string, unknown>): Email {
     from: String(d.from ?? ''),
     fromName: String(d.fromName ?? ''),
     to: String(d.to ?? ''),
+    cc: Array.isArray(d.cc) ? (d.cc as unknown[]).map(String) : undefined,
     subject: String(d.subject ?? ''),
     body: String(d.body ?? ''),
+    signature: d.signature ? String(d.signature) : undefined,
+    attachments: Array.isArray(d.attachments)
+      ? (d.attachments as Record<string, unknown>[]).map((a) => ({
+          name: String(a.name ?? ''),
+          size: Number(a.size ?? 0),
+          contentType: String(a.contentType ?? ''),
+        }))
+      : undefined,
     direction: d.direction === 'outbound' ? 'outbound' : 'inbound',
     read: Boolean(d.read),
+    starred: Boolean(d.starred),
     characterId: d.characterId ? String(d.characterId) : undefined,
     createdAt: toISO(d.createdAt),
   };
@@ -40,6 +50,7 @@ interface MailState {
   selectThread: (threadId: string | null) => void;
   send: (input: api.SendInput) => Promise<void>;
   markRead: (id: string) => Promise<void>;
+  toggleStar: (id: string, starred: boolean) => Promise<void>;
   remove: (id: string) => Promise<void>;
 }
 
@@ -98,6 +109,11 @@ export const useMailStore = create<MailState>((set, get) => ({
     await api.markEmailRead(id);
   },
 
+  toggleStar: async (id, starred) => {
+    // Persisted server-side; the onSnapshot listener reflects the new state.
+    await api.setStarred(id, starred);
+  },
+
   remove: async (id) => {
     await api.deleteEmail(id);
   },
@@ -127,6 +143,8 @@ export function deriveThreads(emails: Email[]): MailThread[] {
       lastMessageAt: last.createdAt,
       snippet: last.body.replace(/\s+/g, ' ').slice(0, 100),
       unread,
+      starred: msgs.some((m) => m.starred),
+      hasAttachment: msgs.some((m) => (m.attachments?.length ?? 0) > 0),
       messages: msgs,
     });
   });
@@ -136,4 +154,24 @@ export function deriveThreads(emails: Email[]): MailThread[] {
 
 export function totalUnread(emails: Email[]): number {
   return emails.filter((e) => e.direction === 'inbound' && !e.read).length;
+}
+
+// filterThreads narrows the thread list by a quick-filter chip + a text query
+// (matches participant, subject, message bodies, and sender). Pure + tested.
+export function filterThreads(threads: MailThread[], queryStr: string, filter: MailFilter): MailThread[] {
+  let out = threads;
+  if (filter === 'unread') out = out.filter((t) => t.unread > 0);
+  else if (filter === 'starred') out = out.filter((t) => t.starred);
+  else if (filter === 'attachments') out = out.filter((t) => t.hasAttachment);
+
+  const q = queryStr.trim().toLowerCase();
+  if (q) {
+    out = out.filter(
+      (t) =>
+        t.participantName.toLowerCase().includes(q) ||
+        t.subject.toLowerCase().includes(q) ||
+        t.messages.some((m) => m.body.toLowerCase().includes(q) || m.from.toLowerCase().includes(q)),
+    );
+  }
+  return out;
 }

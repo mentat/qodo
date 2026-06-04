@@ -1,5 +1,12 @@
 package seed
 
+// SeedAttachment is a decorative (mocked) attachment on a seed email.
+type SeedAttachment struct {
+	Name        string
+	Size        int64
+	ContentType string
+}
+
 // SeedEmail is a starter inbox message from a character. AgeHours places it
 // in the recent past so the inbox looks lived-in on first login.
 type SeedEmail struct {
@@ -7,6 +14,8 @@ type SeedEmail struct {
 	Subject     string
 	Body        string
 	AgeHours    float64
+	Cc          []string
+	Attachments []SeedAttachment
 }
 
 // SeedEmails is the pre-populated inbox. Each starts its own thread.
@@ -33,6 +42,10 @@ Sir Reginald Buffer III`,
 		Subject:     "Cloud migration is just weather, actually ☁️",
 		AgeHours:    6,
 		Body: `Ahoy! Capt. Nimbus here. Just wrapped the Q3 migration — smooth sailing through the stratocumulus, barely a dropped packet. I've plotted a course for your data and we should make landfall in us-central1 by Thursday. All hands on deck! Let me know if you hit any turbulence. —Carol`,
+		Attachments: []SeedAttachment{
+			{Name: "migration-plan.xlsx", Size: 48213, ContentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
+			{Name: "flight-path.png", Size: 184320, ContentType: "image/png"},
+		},
 	},
 	{
 		CharacterID: "y2k",
@@ -45,12 +58,19 @@ Sir Reginald Buffer III`,
 		Subject:     "vibes for the week (a gradient)",
 		AgeHours:    27,
 		Body: `okok so. the week's energy is reading very magenta-to-cyan at about 45 degrees, with a soft VHS grain over everything. your todo list, aesthetically, is giving "unfinished but hopeful." i'd lean into the neon. lmk if you want me to mood-map the calendar too. ✨ —Moodboard`,
+		Attachments: []SeedAttachment{
+			{Name: "q3-moodboard.pdf", Size: 2310492, ContentType: "application/pdf"},
+		},
 	},
 	{
 		CharacterID: "brad",
 		Subject:     "quick sync to align on synergies?",
 		AgeHours:    44,
+		Cc:          []string{"stakeholders@synthwave.os", "reginald@synthwave.os"},
 		Body: `Hey hey! Brad from Procurement here. Wanted to circle back and put some time on the calendar to align on synergies and socialize a few low-hanging-fruit action items. Does a quick 30 work? Happy to take it offline and loop in the broader stakeholder group. Best, Brad`,
+		Attachments: []SeedAttachment{
+			{Name: "synergy-deck-FINAL-v3.pptx", Size: 5821440, ContentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation"},
+		},
 	},
 	{
 		CharacterID: "dot-matrix",

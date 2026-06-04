@@ -26,6 +26,15 @@ export async function markEmailRead(id: string): Promise<void> {
   await expectOk(res);
 }
 
+export async function setStarred(id: string, starred: boolean): Promise<void> {
+  const res = await fetch(`${BASE}/${id}/star`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ starred }),
+  });
+  await expectOk(res);
+}
+
 export async function deleteEmail(id: string): Promise<void> {
   const res = await fetch(`${BASE}/${id}`, { method: 'DELETE', headers: await authHeaders() });
   await expectOk(res);

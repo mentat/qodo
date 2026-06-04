@@ -16,18 +16,30 @@ import (
 // otherwise). Threads are derived client-side by grouping on ThreadID, so
 // there is no separate threads collection to keep in sync.
 type Email struct {
-	ID          string    `json:"id" firestore:"-"`
-	UserID      string    `json:"userId" firestore:"userId"`
-	ThreadID    string    `json:"threadId" firestore:"threadId"`
-	From        string    `json:"from" firestore:"from"`
-	FromName    string    `json:"fromName" firestore:"fromName"`
-	To          string    `json:"to" firestore:"to"`
-	Subject     string    `json:"subject" firestore:"subject"`
-	Body        string    `json:"body" firestore:"body"`
-	Direction   string    `json:"direction" firestore:"direction"` // "inbound" | "outbound"
-	Read        bool      `json:"read" firestore:"read"`
-	CharacterID string    `json:"characterId,omitempty" firestore:"characterId,omitempty"`
-	CreatedAt   time.Time `json:"createdAt" firestore:"createdAt"`
+	ID          string       `json:"id" firestore:"-"`
+	UserID      string       `json:"userId" firestore:"userId"`
+	ThreadID    string       `json:"threadId" firestore:"threadId"`
+	From        string       `json:"from" firestore:"from"`
+	FromName    string       `json:"fromName" firestore:"fromName"`
+	To          string       `json:"to" firestore:"to"`
+	Cc          []string     `json:"cc,omitempty" firestore:"cc,omitempty"`
+	Subject     string       `json:"subject" firestore:"subject"`
+	Body        string       `json:"body" firestore:"body"`
+	Signature   string       `json:"signature,omitempty" firestore:"signature,omitempty"`
+	Attachments []Attachment `json:"attachments,omitempty" firestore:"attachments,omitempty"`
+	Direction   string       `json:"direction" firestore:"direction"` // "inbound" | "outbound"
+	Read        bool         `json:"read" firestore:"read"`
+	Starred     bool         `json:"starred" firestore:"starred"`
+	CharacterID string       `json:"characterId,omitempty" firestore:"characterId,omitempty"`
+	CreatedAt   time.Time    `json:"createdAt" firestore:"createdAt"`
+}
+
+// Attachment is a decorative (mocked) email attachment — there is no real file
+// storage; the frontend renders a chip from this metadata.
+type Attachment struct {
+	Name        string `json:"name" firestore:"name"`
+	Size        int64  `json:"size" firestore:"size"` // bytes
+	ContentType string `json:"contentType" firestore:"contentType"`
 }
 
 const (
@@ -133,8 +145,10 @@ func (s *EmailService) Get(ctx context.Context, userID, id string) (Email, error
 type SendInput struct {
 	To          string // recipient handle (a character's address)
 	ToName      string
+	Cc          []string
 	Subject     string
 	Body        string
+	Attachments []Attachment
 	ThreadID    string // empty starts a new thread
 	CharacterID string // recipient persona; when set, an auto-reply is published
 }
@@ -159,8 +173,10 @@ func (s *EmailService) Send(ctx context.Context, userID string, in SendInput) (E
 		From:        UserAddr,
 		FromName:    "You",
 		To:          in.To,
+		Cc:          in.Cc,
 		Subject:     strings.TrimSpace(in.Subject),
 		Body:        in.Body,
+		Attachments: in.Attachments,
 		Direction:   DirectionOutbound,
 		Read:        true,
 		CharacterID: in.CharacterID,
@@ -204,8 +220,11 @@ func (s *EmailService) publishReply(ctx context.Context, e Email) error {
 type InboundInput struct {
 	From        string
 	FromName    string
+	Cc          []string
 	Subject     string
 	Body        string
+	Signature   string
+	Attachments []Attachment
 	ThreadID    string // empty starts a new thread
 	CharacterID string
 	CreatedAt   time.Time // zero → now
@@ -230,8 +249,11 @@ func (s *EmailService) CreateInbound(ctx context.Context, userID string, in Inbo
 		From:        in.From,
 		FromName:    in.FromName,
 		To:          UserAddr,
+		Cc:          in.Cc,
 		Subject:     strings.TrimSpace(in.Subject),
 		Body:        in.Body,
+		Signature:   in.Signature,
+		Attachments: in.Attachments,
 		Direction:   DirectionInbound,
 		Read:        false,
 		CharacterID: in.CharacterID,
@@ -252,6 +274,17 @@ func (s *EmailService) MarkRead(ctx context.Context, userID, id string) (Email, 
 	}
 	if _, err := s.col().Doc(id).Update(ctx, []firestore.Update{{Path: "read", Value: true}}); err != nil {
 		return Email{}, fmt.Errorf("mark read: %w", err)
+	}
+	return s.Get(ctx, userID, id)
+}
+
+// SetStarred toggles the star flag on an email owned by userID.
+func (s *EmailService) SetStarred(ctx context.Context, userID, id string, starred bool) (Email, error) {
+	if _, err := s.Get(ctx, userID, id); err != nil {
+		return Email{}, err
+	}
+	if _, err := s.col().Doc(id).Update(ctx, []firestore.Update{{Path: "starred", Value: starred}}); err != nil {
+		return Email{}, fmt.Errorf("set starred: %w", err)
 	}
 	return s.Get(ctx, userID, id)
 }

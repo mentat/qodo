@@ -218,6 +218,7 @@ func main() {
 		r.Get("/threads/{threadId}", emailHandler.Thread)
 		r.Get("/{id}", emailHandler.Get)
 		r.Post("/{id}/read", emailHandler.MarkRead)
+		r.Post("/{id}/star", emailHandler.Star)
 		r.Delete("/{id}", emailHandler.Delete)
 	})
 

@@ -144,6 +144,7 @@ func (h *PubsubHandler) EmailReply(w http.ResponseWriter, r *http.Request) {
 		FromName:    ch.Name,
 		Subject:     subject,
 		Body:        body,
+		Signature:   ch.Signature,
 		ThreadID:    p.ThreadID,
 		CharacterID: p.CharacterID,
 	}); err != nil {
@@ -196,6 +197,7 @@ func (h *PubsubHandler) Drip(w http.ResponseWriter, r *http.Request) {
 			FromName:    ch.Name,
 			Subject:     subject,
 			Body:        body,
+			Signature:   ch.Signature,
 			CharacterID: ch.ID,
 		}); err != nil {
 			log.Printf("pubsub drip: inbound failed for %s: %v", uid, err)
