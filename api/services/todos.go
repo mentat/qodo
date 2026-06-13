@@ -217,9 +217,6 @@ func (s *TodoService) Patch(ctx context.Context, userID, id string, patch map[st
 	if userID == "" {
 		return Todo{}, ErrUnauthenticated
 	}
-	if _, err := s.Get(ctx, userID, id); err != nil {
-		return Todo{}, err
-	}
 	if patch == nil {
 		patch = map[string]any{}
 	}
