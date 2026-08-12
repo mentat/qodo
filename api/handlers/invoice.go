@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"cloud.google.com/go/firestore"
@@ -104,7 +105,10 @@ func (h *InvoiceHandler) decide(w http.ResponseWriter, r *http.Request, approve 
 		Note string `json:"note"`
 	}
 	if r.Body != nil {
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil && err != io.EOF {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
 	}
 
 	inv, err := h.svc.Decide(r.Context(), uid, id, approve, body.Note)
