@@ -80,16 +80,18 @@ func main() {
 	eventSvc := services.NewEventService(fsClient)
 	contactSvc := services.NewContactService(fsClient)
 	noteSvc := services.NewNoteService(fsClient)
+	invoiceSvc := services.NewInvoiceService(fsClient)
 
 	emailHandler := handlers.NewEmailHandlerWithService(emailSvc)
 	eventHandler := handlers.NewEventHandlerWithService(eventSvc)
 	contactHandler := handlers.NewContactHandlerWithService(contactSvc)
 	noteHandler := handlers.NewNoteHandlerWithService(noteSvc)
+	invoiceHandler := handlers.NewInvoiceHandlerWithService(invoiceSvc)
 	weatherHandler := handlers.NewWeatherHandler()
 	radioHandler := handlers.NewRadioHandler()
 	calendarHandler := handlers.NewCalendarHandler(eventSvc, todoSvc)
 
-	seedSvc := services.NewSeedService(fsClient, emailSvc, eventSvc, contactSvc, noteSvc)
+	seedSvc := services.NewSeedService(fsClient, emailSvc, eventSvc, contactSvc, noteSvc, invoiceSvc)
 	demoHandler := handlers.NewDemoHandler(seedSvc)
 
 	// Risk: world-conquest game. The Store wraps the Firestore-backed
@@ -251,6 +253,17 @@ func main() {
 		r.Get("/{id}", noteHandler.Get)
 		r.Put("/{id}", noteHandler.Update)
 		r.Delete("/{id}", noteHandler.Delete)
+	})
+
+	r.Route("/api/invoices", func(r chi.Router) {
+		r.Use(authMw.Verify)
+		r.Get("/", invoiceHandler.List)
+		r.Post("/", invoiceHandler.Create)
+		r.Get("/policy", invoiceHandler.Policy)
+		r.Get("/{id}", invoiceHandler.Get)
+		r.Post("/{id}/approve", invoiceHandler.Approve)
+		r.Post("/{id}/reject", invoiceHandler.Reject)
+		r.Post("/{id}/pay", invoiceHandler.Pay)
 	})
 
 	r.Route("/api/risk", func(r chi.Router) {

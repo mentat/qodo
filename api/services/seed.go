@@ -24,11 +24,12 @@ type SeedService struct {
 	events   *EventService
 	contacts *ContactService
 	notes    *NoteService
+	invoices *InvoiceService
 }
 
 // NewSeedService wires the seeder to the domain services it writes through.
-func NewSeedService(fs *firestore.Client, email *EmailService, event *EventService, contact *ContactService, note *NoteService) *SeedService {
-	return &SeedService{fs: fs, emails: email, events: event, contacts: contact, notes: note}
+func NewSeedService(fs *firestore.Client, email *EmailService, event *EventService, contact *ContactService, note *NoteService, invoice *InvoiceService) *SeedService {
+	return &SeedService{fs: fs, emails: email, events: event, contacts: contact, notes: note, invoices: invoice}
 }
 
 // Seed plants demo content for a user, exactly once. It returns true if it
@@ -122,11 +123,36 @@ func (s *SeedService) plant(ctx context.Context, userID string) error {
 			return fmt.Errorf("seed note: %w", err)
 		}
 	}
+
+	// Invoices. Create() routes each one through the approval policy, so the
+	// seeded queue lands in a realistic mix of approved and pending states.
+	for _, in := range seed.SeedInvoices {
+		due := now.AddDate(0, 0, in.DueInDays)
+		lines := make([]InvoiceLine, 0, len(in.Lines))
+		for _, l := range in.Lines {
+			lines = append(lines, InvoiceLine{
+				Description: l.Description,
+				GLCode:      l.GLCode,
+				AmountCents: l.AmountCents,
+			})
+		}
+		if _, err := s.invoices.Create(ctx, userID, InvoiceCreateInput{
+			VendorName:    in.VendorName,
+			InvoiceNumber: in.InvoiceNumber,
+			EntityID:      in.EntityID,
+			CurrencyCode:  in.CurrencyCode,
+			AmountCents:   in.AmountCents,
+			Lines:         lines,
+			DueDate:       &due,
+		}); err != nil {
+			return fmt.Errorf("seed invoice: %w", err)
+		}
+	}
 	return nil
 }
 
 // Reset deletes the user's seeded suite content (emails, events, contacts,
-// notes), drops the marker, and reseeds. Todos are left alone.
+// notes, invoices), drops the marker, and reseeds. Todos are left alone.
 func (s *SeedService) Reset(ctx context.Context, userID string) error {
 	if userID == "" {
 		return ErrUnauthenticated
@@ -136,6 +162,7 @@ func (s *SeedService) Reset(ctx context.Context, userID string) error {
 		s.events.Collection(),
 		s.contacts.Collection(),
 		s.notes.Collection(),
+		s.invoices.Collection(),
 	} {
 		if err := deleteAllForUser(ctx, s.fs, col, userID); err != nil {
 			return err

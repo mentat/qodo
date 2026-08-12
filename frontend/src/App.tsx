@@ -12,6 +12,7 @@ import { MailApp } from './components/Mail/MailApp';
 import { CalendarApp } from './components/Calendar/CalendarApp';
 import { ContactsApp } from './components/Contacts/ContactsApp';
 import { NotesApp } from './components/Notes/NotesApp';
+import { InvoicesApp } from './components/Invoices/InvoicesApp';
 import { RadioApp } from './components/Radio/RadioApp';
 import { WeatherApp } from './components/Weather/WeatherApp';
 import { RiskApp } from './components/Risk/RiskApp';
@@ -29,6 +30,7 @@ const TITLES: Record<string, string> = {
   '/calendar': 'Calendar',
   '/contacts': 'Contacts',
   '/notes': 'Notes',
+  '/invoices': 'Invoices',
   '/radio': 'Radio',
   '/weather': 'Weather',
   '/risk': 'Risk',
@@ -122,6 +124,7 @@ export default function App() {
           <Route path="/calendar" element={<CalendarApp />} />
           <Route path="/contacts" element={<ContactsApp />} />
           <Route path="/notes" element={<NotesApp />} />
+          <Route path="/invoices" element={<InvoicesApp />} />
           <Route path="/radio" element={<RadioApp />} />
           <Route path="/weather" element={<WeatherApp />} />
           <Route path="/risk" element={<RiskApp />} />

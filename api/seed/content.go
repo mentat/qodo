@@ -141,3 +141,86 @@ _Reset the demo data anytime from the Marvin / settings menu._`,
 BZZT. End of reverie buffer.`,
 	},
 }
+
+// SeedInvoice is a demo AP invoice. AmountCents is the invoice total; the
+// lines must sum to it.
+type SeedInvoice struct {
+	VendorName    string
+	InvoiceNumber string
+	EntityID      string
+	CurrencyCode  string
+	AmountCents   int64
+	DueInDays     int
+	Lines         []SeedInvoiceLine
+}
+
+// SeedInvoiceLine is one GL-coded line on a demo invoice.
+type SeedInvoiceLine struct {
+	Description string
+	GLCode      string
+	AmountCents int64
+}
+
+// SeedInvoices spans the approval ladder: under the delegated limit, over it,
+// and over the CFO tier, across three entities.
+var SeedInvoices = []SeedInvoice{
+	{
+		VendorName:    "Sirius Cybernetics Corp",
+		InvoiceNumber: "SCC-88121",
+		EntityID:      "entity-us-1",
+		CurrencyCode:  "USD",
+		AmountCents:   4_218_000,
+		DueInDays:     21,
+		Lines: []SeedInvoiceLine{
+			{Description: "Genuine People Personality licences (500 seats)", GLCode: "6110", AmountCents: 3_600_000},
+			{Description: "Cheerfulness calibration", GLCode: "6110", AmountCents: 418_000},
+			{Description: "Support retainer", GLCode: "6200", AmountCents: 200_000},
+		},
+	},
+	{
+		VendorName:    "Milliways Catering",
+		InvoiceNumber: "MW-2049",
+		EntityID:      "entity-us-1",
+		CurrencyCode:  "USD",
+		AmountCents:   62_400,
+		DueInDays:     14,
+		Lines: []SeedInvoiceLine{
+			{Description: "All-hands lunch, end of the universe", GLCode: "6400", AmountCents: 62_400},
+		},
+	},
+	{
+		VendorName:    "Vogon Freight & Logistics",
+		InvoiceNumber: "VFL-00417",
+		EntityID:      "entity-us-1",
+		CurrencyCode:  "USD",
+		AmountCents:   1_150_000,
+		DueInDays:     7,
+		Lines: []SeedInvoiceLine{
+			{Description: "Bypass haulage, Q3", GLCode: "6300", AmountCents: 900_000},
+			{Description: "Poetry surcharge (non-negotiable)", GLCode: "6300", AmountCents: 250_000},
+		},
+	},
+	{
+		VendorName:    "Magrathea Fabrication",
+		InvoiceNumber: "MGF-7781",
+		EntityID:      "entity-us-2",
+		CurrencyCode:  "USD",
+		AmountCents:   9_875_000,
+		DueInDays:     30,
+		Lines: []SeedInvoiceLine{
+			{Description: "Custom planet tooling, milestone 2", GLCode: "1700", AmountCents: 7_500_000},
+			{Description: "Fjord detailing", GLCode: "1700", AmountCents: 2_375_000},
+		},
+	},
+	{
+		VendorName:    "Hyperspace Planning Council",
+		InvoiceNumber: "HPC-0001",
+		EntityID:      "entity-eu-1",
+		CurrencyCode:  "EUR",
+		AmountCents:   340_000,
+		DueInDays:     45,
+		Lines: []SeedInvoiceLine{
+			{Description: "Filing fees — plans on display", GLCode: "6800", AmountCents: 340_000},
+		},
+	},
+}
