@@ -139,12 +139,7 @@ func withinDelegatedAuthority(inv Invoice, limitCents int64) bool {
 	if limitCents <= 0 {
 		return false
 	}
-	for _, l := range inv.Lines {
-		if l.AmountCents > limitCents {
-			return false
-		}
-	}
-	return true
+	return inv.AmountCents <= limitCents
 }
 
 // AllocateCents distributes total across weights proportionally in whole
@@ -347,9 +342,11 @@ func (s *InvoiceService) Create(ctx context.Context, userID string, in InvoiceCr
 	if in.AmountCents <= 0 {
 		return Invoice{}, fmt.Errorf("%w: amountCents must be positive", ErrInvalidInput)
 	}
-	currency := in.CurrencyCode
+	currency := strings.ToUpper(strings.TrimSpace(in.CurrencyCode))
 	if currency == "" {
 		currency = "USD"
+	} else if len(currency) != 3 {
+		return Invoice{}, fmt.Errorf("%w: currencyCode must be a 3-letter code", ErrInvalidInput)
 	}
 
 	lines := in.Lines
@@ -362,6 +359,15 @@ func (s *InvoiceService) Create(ctx context.Context, userID string, in InvoiceCr
 	}
 	var lineTotal int64
 	for _, l := range lines {
+		if strings.TrimSpace(l.GLCode) == "" || len(l.GLCode) > 64 {
+			return Invoice{}, fmt.Errorf("%w: each line requires a valid glCode", ErrInvalidInput)
+		}
+		if len(l.Description) > 500 {
+			return Invoice{}, fmt.Errorf("%w: line description is too long", ErrInvalidInput)
+		}
+		if l.AmountCents <= 0 || l.AmountCents > 1_000_000_000_00 {
+			return Invoice{}, fmt.Errorf("%w: line amount must be positive and within bounds", ErrInvalidInput)
+		}
 		lineTotal += l.AmountCents
 	}
 	if lineTotal != in.AmountCents {
@@ -501,7 +507,9 @@ func (s *InvoiceService) SubmitPayment(ctx context.Context, userID, id string) (
 		return Invoice{}, fmt.Errorf("%w: invoice is %s, not approved", ErrInvalidInput, inv.Status)
 	}
 
-	erpDocID, err := s.erp.PostInvoice(ctx, inv)
+	outCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	erpDocID, err := s.erp.PostInvoice(outCtx, inv)
 	if err != nil {
 		return Invoice{}, fmt.Errorf("erp post: %w", err)
 	}
@@ -510,11 +518,12 @@ func (s *InvoiceService) SubmitPayment(ctx context.Context, userID, id string) (
 		ref     string
 		lastErr error
 	)
+	key := fmt.Sprintf("pay-%s", inv.ID)
 	for attempt := 1; attempt <= maxPaymentAttempts; attempt++ {
-		// A fresh idempotency key per attempt, so a retry is never turned
-		// away by the gateway as a duplicate submission.
-		key := fmt.Sprintf("pay-%s-%d", inv.ID, time.Now().UnixNano())
-		ref, lastErr = s.payments.Submit(ctx, PaymentRequest{
+		if attempt > 1 {
+			time.Sleep(time.Duration(1<<(attempt-2)) * 100 * time.Millisecond)
+		}
+		ref, lastErr = s.payments.Submit(outCtx, PaymentRequest{
 			IdempotencyKey: key,
 			InvoiceID:      inv.ID,
 			EntityID:       inv.EntityID,
