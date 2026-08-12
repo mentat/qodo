@@ -35,7 +35,7 @@ export interface Invoice {
   invoiceNumber: string;
   entityId: string;
   currencyCode: string;
-  amount: number;
+  amountCents: number;
   lines: InvoiceLine[];
   status: InvoiceStatus;
   approvalChain: ApprovalStep[];
@@ -47,7 +47,7 @@ export interface Invoice {
   updatedAt: string;
 }
 
-export type InvoiceCreate = Pick<Invoice, 'vendorName' | 'entityId' | 'amount'> &
+export type InvoiceCreate = Pick<Invoice, 'vendorName' | 'entityId' | 'amountCents'> &
   Partial<Pick<Invoice, 'invoiceNumber' | 'currencyCode' | 'lines' | 'dueDate'>>;
 
 export interface ApprovalTier {

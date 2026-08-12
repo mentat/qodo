@@ -166,7 +166,7 @@ export function InvoicesApp() {
 
                     <Group gap="sm" wrap="nowrap">
                       <Text fw={700} style={{ whiteSpace: 'nowrap' }}>
-                        {formatCents(inv.amount, inv.currencyCode)}
+                        {formatCents(inv.amountCents, inv.currencyCode)}
                       </Text>
                       {inv.status === 'pending_approval' && (
                         <>

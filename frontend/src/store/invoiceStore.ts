@@ -74,7 +74,7 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
 export function awaitingApprovalTotal(invoices: Invoice[]): number {
   return invoices
     .filter((i) => i.status === 'pending_approval')
-    .reduce((sum, i) => sum + i.amount, 0);
+    .reduce((sum, i) => sum + i.amountCents, 0);
 }
 
 // runAction marks an invoice as in-flight, swaps in the server's post-state on
