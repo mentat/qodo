@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go/v4"
@@ -64,7 +65,7 @@ func main() {
 	todoHandler := handlers.NewTodoHandlerWithService(todoSvc)
 	invoiceSvc := services.NewInvoiceService(fsClient, &services.HTTPGateway{
 		BaseURL: os.Getenv("PAYMENT_GATEWAY_URL"),
-		Client:  &http.Client{},
+		Client:  &http.Client{Timeout: 10 * time.Second},
 	})
 	invoiceHandler := handlers.NewInvoiceHandlerWithService(invoiceSvc)
 	authMw := middleware.NewAuthMiddleware(authClient)
