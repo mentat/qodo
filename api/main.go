@@ -62,6 +62,11 @@ func main() {
 
 	todoSvc := services.NewTodoService(fsClient)
 	todoHandler := handlers.NewTodoHandlerWithService(todoSvc)
+	invoiceSvc := services.NewInvoiceService(fsClient, &services.HTTPGateway{
+		BaseURL: os.Getenv("PAYMENT_GATEWAY_URL"),
+		Client:  &http.Client{},
+	})
+	invoiceHandler := handlers.NewInvoiceHandlerWithService(invoiceSvc)
 	authMw := middleware.NewAuthMiddleware(authClient)
 
 	// Suite domains: mail, calendar, contacts, notes, plus mocked weather +
@@ -192,6 +197,14 @@ func main() {
 	// Public radio stream proxy — the <audio> element can't send an auth
 	// header, and it serves only fixed, non-sensitive tracks.
 	r.Get("/api/radio/stream", radioHandler.Stream)
+
+	r.Route("/api/invoices", func(r chi.Router) {
+		r.Use(authMw.Verify)
+		r.Post("/", invoiceHandler.Create)
+		r.Get("/{invoiceID}", invoiceHandler.Get)
+		r.Post("/{invoiceID}/decide", invoiceHandler.Decide)
+		r.Post("/{invoiceID}/pay", invoiceHandler.Pay)
+	})
 
 	r.Route("/api/todos", func(r chi.Router) {
 		r.Use(authMw.Verify)
