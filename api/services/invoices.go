@@ -5,9 +5,12 @@
 package services
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -89,12 +92,7 @@ func (inv Invoice) TotalCents() int64 {
 // withinDelegatedAuthority reports whether the submitter may commit this spend
 // under their own delegated limit, without routing to a second approver.
 func withinDelegatedAuthority(inv Invoice, limitCents int64) bool {
-	for _, l := range inv.Lines {
-		if l.AmountCents > limitCents {
-			return false
-		}
-	}
-	return true
+	return inv.TotalCents() <= limitCents
 }
 
 // Create stores a new invoice and routes it for approval. An invoice inside the
@@ -112,7 +110,11 @@ func (s *InvoiceService) Create(ctx context.Context, userID string, inv Invoice,
 	}
 
 	now := time.Now().UTC()
+	// Identity and workflow fields are server-managed.
+	inv.SubmitterID = userID
 	inv.UserID = userID
+	inv.Status = ""
+	inv.ApprovalChain = nil
 	inv.CreatedAt = now
 	inv.UpdatedAt = now
 
@@ -162,6 +164,9 @@ func (s *InvoiceService) Decide(ctx context.Context, userID, invoiceID, approver
 	if inv.Status != StatusPending {
 		return Invoice{}, ErrAlreadyDecided
 	}
+	if approverID == "" || approverID == inv.SubmitterID {
+		return Invoice{}, ErrInvoiceInvalid
+	}
 
 	now := time.Now().UTC()
 	inv.ApprovalChain = append(inv.ApprovalChain, ApprovalStep{
@@ -208,7 +213,7 @@ func (s *InvoiceService) Pay(ctx context.Context, userID, invoiceID string) (Inv
 // idempotencyKey identifies a payment attempt to the gateway so a retried
 // submission is recognised as the same charge.
 func idempotencyKey(inv Invoice) string {
-	return fmt.Sprintf("inv-%s-%d", inv.ID, time.Now().UnixNano())
+	return fmt.Sprintf("inv-%s-payment", inv.ID)
 }
 
 // PaymentGateway is the outbound payment integration.
@@ -226,22 +231,33 @@ type HTTPGateway struct {
 func (g *HTTPGateway) Submit(ctx context.Context, amountCents int64, currency, idempotencyKey string) error {
 	var lastErr error
 	for attempt := 0; attempt < 3; attempt++ {
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, g.BaseURL+"/payments", nil)
+		if attempt > 0 {
+			delay := time.Duration(1<<uint(attempt-1)) * 100 * time.Millisecond
+			select { case <-ctx.Done(): return ctx.Err(); case <-time.After(delay): }
+		}
+		payload, err := json.Marshal(struct { AmountCents int64 `json:"amountCents"`; Currency string `json:"currency"` }{amountCents, currency})
+		if err != nil { return err }
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, g.BaseURL+"/payments", bytes.NewReader(payload))
 		if err != nil {
 			return err
 		}
 		req.Header.Set("Idempotency-Key", idempotencyKey)
+		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := g.Client.Do(req)
 		if err != nil {
 			lastErr = err
 			continue
 		}
-		defer resp.Body.Close()
-		if resp.StatusCode < 300 {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return nil
 		}
 		lastErr = fmt.Errorf("gateway returned %d", resp.StatusCode)
+		if resp.StatusCode < 500 && resp.StatusCode != http.StatusTooManyRequests {
+			return lastErr
+		}
 	}
 	return lastErr
 }

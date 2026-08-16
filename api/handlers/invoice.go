@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/mentat/qodo/api/middleware"
@@ -46,20 +45,18 @@ func invoiceStatusFor(err error) (int, string) {
 func (h *InvoiceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	uid := middleware.GetUserID(r.Context())
 
-	var inv services.Invoice
-	if err := json.NewDecoder(r.Body).Decode(&inv); err != nil {
+	var body struct {
+		VendorName   string                `json:"vendorName"`
+		CurrencyCode string                `json:"currencyCode"`
+		Lines        []services.InvoiceLine `json:"lines"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
+	inv := services.Invoice{VendorName: body.VendorName, CurrencyCode: body.CurrencyCode, Lines: body.Lines}
 
-	limit := defaultDelegatedLimitCents
-	if raw := r.URL.Query().Get("limitCents"); raw != "" {
-		if parsed, err := strconv.ParseInt(raw, 10, 64); err == nil {
-			limit = parsed
-		}
-	}
-
-	created, err := h.svc.Create(r.Context(), uid, inv, limit)
+	created, err := h.svc.Create(r.Context(), uid, inv, defaultDelegatedLimitCents)
 	if err != nil {
 		status, msg := invoiceStatusFor(err)
 		writeError(w, status, msg)
@@ -86,8 +83,7 @@ func (h *InvoiceHandler) Decide(w http.ResponseWriter, r *http.Request) {
 	uid := middleware.GetUserID(r.Context())
 
 	var body struct {
-		ApproverID string `json:"approverId"`
-		Decision   string `json:"decision"`
+		Decision string `json:"decision"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")
@@ -98,7 +94,7 @@ func (h *InvoiceHandler) Decide(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inv, err := h.svc.Decide(r.Context(), uid, chi.URLParam(r, "invoiceID"), body.ApproverID, body.Decision)
+	inv, err := h.svc.Decide(r.Context(), uid, chi.URLParam(r, "invoiceID"), uid, body.Decision)
 	if err != nil {
 		status, msg := invoiceStatusFor(err)
 		writeError(w, status, msg)
